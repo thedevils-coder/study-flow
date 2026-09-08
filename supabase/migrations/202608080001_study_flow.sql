@@ -1,0 +1,12 @@
+create type public.app_role as enum ('user', 'admin');
+create type public.subscription_state as enum ('none', 'active', 'ending', 'pending', 'failed', 'cancelled', 'expired', 'refunded');
+create table public.profiles (id uuid primary key references auth.users(id) on delete cascade, display_name text not null default 'Student', role public.app_role not null default 'user', language text not null default 'en', created_at timestamptz not null default now());
+create table public.subscriptions (user_id uuid primary key references public.profiles(id) on delete cascade, provider text not null default 'revenuecat', entitlement_id text, product_id text, state public.subscription_state not null default 'none', expires_at timestamptz, will_renew boolean not null default false, updated_at timestamptz not null default now());
+create table public.pricing_config (region text primary key default 'IN', currency text not null default 'INR', trial_price integer not null check(trial_price=0), trial_days integer not null check(trial_days=15), monthly_price integer not null check(monthly_price>=0), updated_at timestamptz not null default now());
+insert into public.pricing_config(region,currency,trial_price,trial_days,monthly_price) values ('IN','INR',0,15,99);
+alter table public.profiles enable row level security; alter table public.subscriptions enable row level security; alter table public.pricing_config enable row level security;
+create policy "read own profile" on public.profiles for select to authenticated using ((select auth.uid())=id);
+create policy "read own subscription" on public.subscriptions for select to authenticated using ((select auth.uid())=user_id);
+create policy "read pricing" on public.pricing_config for select to authenticated using (true);
+create function public.create_profile() returns trigger language plpgsql security definer set search_path=public as $$ begin insert into public.profiles(id,display_name) values(new.id,coalesce(new.raw_user_meta_data->>'display_name','Student')); return new; end; $$;
+create trigger on_auth_user_created after insert on auth.users for each row execute procedure public.create_profile();
