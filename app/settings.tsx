@@ -1,0 +1,204 @@
+import { useState } from 'react';
+import { router } from 'expo-router';
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Linking,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  View,
+} from 'react-native';
+import { Button, Card, Row, ThemedSafeArea } from '@/components/ui';
+import { BRAND } from '@/constants/theme';
+import { useColors } from '@/lib/use-colors';
+import { useApp } from '@/store/app-store';
+import { t } from '@/i18n';
+import { UserSettings } from '@/types';
+
+export default function Settings() {
+  const { session, settings, saveSettings, signOut, deleteAccount } = useApp();
+  const tr = (key: string) => t(session!.language, key);
+  const [busy, setBusy] = useState(false);
+  const palette = useColors();
+
+  const update = async (patch: Partial<UserSettings>) => {
+    try {
+      await saveSettings(patch);
+      if (
+        patch.notificationsEnabled === true ||
+        patch.studyReminders !== undefined ||
+        patch.goalReminders !== undefined
+      ) {
+        const { syncLocalReminders } = await import('@/services/notifications');
+        const result = await syncLocalReminders({ ...settings, ...patch });
+        if (result === 'denied') {
+          Alert.alert(tr('notifications'), tr('notificationsPermissionDenied'));
+        }
+      }
+    } catch {
+      Alert.alert(tr('settings'), tr('unableToSaveSettings'));
+    }
+  };
+
+  return (
+    <ThemedSafeArea>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+      <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled">
+        <Pressable onPress={() => router.back()} accessibilityRole="button">
+          <Text style={[s.back, { color: palette.purple }]}>{tr('back')}</Text>
+        </Pressable>
+        <Text style={[s.title, { color: palette.ink }]}>{tr('settings')}</Text>
+
+        <Card>
+          <Text style={[s.heading, { color: palette.ink }]}>{tr('appearance')}</Text>
+          {(['light', 'dark', 'system'] as UserSettings['theme'][]).map((theme) => (
+            <Row
+              key={theme}
+              icon={theme === 'dark' ? 'moon-outline' : 'sunny-outline'}
+              label={tr(theme)}
+              value={settings.theme === theme ? '✓' : undefined}
+              onPress={() => update({ theme })}
+            />
+          ))}
+        </Card>
+
+        <Card>
+          <Text style={[s.heading, { color: palette.ink }]}>{tr('notifications')}</Text>
+          <View style={[s.switchRow, { borderColor: palette.border }]}>
+            <Text style={[s.switchLabel, { color: palette.ink }]}>{tr('notificationsEnabled')}</Text>
+            <Switch
+              value={settings.notificationsEnabled}
+              onValueChange={(notificationsEnabled) => update({ notificationsEnabled })}
+            />
+          </View>
+          <View style={[s.switchRow, { borderColor: palette.border }]}>
+            <Text style={[s.switchLabel, { color: palette.ink }]}>{tr('studyReminders')}</Text>
+            <Switch
+              value={settings.studyReminders}
+              onValueChange={(studyReminders) => update({ studyReminders })}
+            />
+          </View>
+          <View style={[s.switchRow, { borderColor: palette.border }]}>
+            <Text style={[s.switchLabel, { color: palette.ink }]}>{tr('goalReminders')}</Text>
+            <Switch
+              value={settings.goalReminders}
+              onValueChange={(goalReminders) => update({ goalReminders })}
+            />
+          </View>
+        </Card>
+
+        <Card>
+          <Text style={[s.heading, { color: palette.ink }]}>{tr('focusPreferences')}</Text>
+          {(['pomodoro', 'deep', 'balanced'] as UserSettings['focusMode'][]).map((mode) => (
+            <Row
+              key={mode}
+              icon="flash-outline"
+              label={tr(mode === 'deep' ? 'deepWork' : mode === 'balanced' ? 'balanced' : 'pomodoro')}
+              value={settings.focusMode === mode ? '✓' : undefined}
+              onPress={() =>
+                update({
+                  focusMode: mode,
+                  focusMinutes: mode === 'deep' ? 50 : mode === 'balanced' ? 45 : 25,
+                })
+              }
+            />
+          ))}
+          {[15, 25, 45, 50].map((minutes) => (
+            <Row
+              key={minutes}
+              icon="timer-outline"
+              label={`${minutes} ${tr('minutes')}`}
+              value={settings.focusMinutes === minutes ? '✓' : undefined}
+              onPress={() => update({ focusMinutes: minutes })}
+            />
+          ))}
+        </Card>
+
+        <Card>
+          <Text style={[s.heading, { color: palette.ink }]}>{tr('aiPreferences')}</Text>
+          <View style={[s.switchRow, { borderColor: palette.border }]}>
+            <Text style={[s.switchLabel, { color: palette.ink }]}>{tr('aiContextEnabled')}</Text>
+            <Switch
+              value={settings.aiContextEnabled}
+              onValueChange={(aiContextEnabled) => update({ aiContextEnabled })}
+            />
+          </View>
+        </Card>
+
+        <Card>
+          <Text style={[s.heading, { color: palette.ink }]}>{tr('account')}</Text>
+          <Row icon="card-outline" label={tr('subscription')} onPress={() => router.push('/subscription')} />
+          <Row icon="language-outline" label={tr('language')} onPress={() => router.push('/(tabs)/profile')} />
+          <Row
+            icon="mail-outline"
+            label={tr('support')}
+            onPress={() => Linking.openURL(`mailto:${BRAND.supportEmail}`)}
+          />
+          <Row icon="document-text-outline" label={tr('legal')} onPress={() => router.push('/legal')} />
+        </Card>
+
+        <Card>
+          <Text style={[s.heading, { color: palette.ink }]}>{tr('dataManagement')}</Text>
+          <Button
+            label={tr('signOut')}
+            variant="light"
+            onPress={async () => {
+              await signOut();
+              router.replace('/');
+            }}
+          />
+          <View style={{ height: 10 }} />
+          <Button
+            label={tr('deleteAccount')}
+            variant="danger"
+            loading={busy}
+            onPress={() =>
+              Alert.alert(tr('deleteAccount'), tr('deleteAccountConfirm'), [
+                { text: tr('cancel'), style: 'cancel' },
+                {
+                  text: tr('deleteAccount'),
+                  style: 'destructive',
+                  onPress: async () => {
+                    setBusy(true);
+                    try {
+                      await deleteAccount();
+                      router.replace('/');
+                    } catch {
+                      Alert.alert(tr('deleteAccount'), tr('deleteAccountFailed'));
+                    } finally {
+                      setBusy(false);
+                    }
+                  },
+                },
+              ])
+            }
+          />
+        </Card>
+      </ScrollView>
+      </KeyboardAvoidingView>
+    </ThemedSafeArea>
+  );
+}
+
+const s = StyleSheet.create({
+  scroll: { padding: 20, paddingBottom: 48 },
+  back: { fontWeight: '800', fontSize: 16 },
+  title: { fontSize: 28, fontWeight: '900', marginVertical: 12 },
+  heading: { fontWeight: '900', fontSize: 16, marginBottom: 4 },
+  switchRow: {
+    minHeight: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderColor: '#EAE7F3',
+  },
+  switchLabel: { flex: 1, fontWeight: '600', paddingRight: 12 },
+});
