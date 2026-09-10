@@ -9,8 +9,8 @@ const json = (body: unknown, status = 200) =>
 const kinds = ['notes', 'summary', 'flashcards', 'quiz', 'explain', 'leo', 'schedule', 'other'] as const;
 type Kind = (typeof kinds)[number];
 
-const BASIC_KINDS = new Set<Kind>(['notes', 'summary', 'explain', 'leo', 'schedule', 'other']);
-const PRO_KINDS = new Set<Kind>(['flashcards', 'quiz']);
+const BASIC_KINDS = new Set<Kind>(['notes', 'summary', 'explain', 'other']);
+const PRO_KINDS = new Set<Kind>(['flashcards', 'quiz', 'leo', 'schedule']);
 
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') {
@@ -83,7 +83,7 @@ Deno.serve(async (request) => {
     return json({ error: 'Start a free trial or choose Basic to use AI Meter.' }, 402);
   }
 
-  if (PRO_KINDS.has(kind) && tier !== 'pro') {
+  if (PRO_KINDS.has(kind) && tier !== 'pro' && !trialActive && String(subscription?.state) !== 'trial') {
     return json({ error: 'This tool is included with Study Flow Pro.' }, 402);
   }
 

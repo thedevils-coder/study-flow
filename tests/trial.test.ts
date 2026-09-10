@@ -53,10 +53,14 @@ describe('entitlements', () => {
     expect(normalizePlan('monthly')).toBe('basic');
   });
 
-  it('gates flashcards to Pro', () => {
+  it('gates flashcards, Leo and Schedule Maker to Pro or trial', () => {
     expect(canUseKind('basic', 'notes')).toBe(true);
     expect(canUseKind('basic', 'flashcards')).toBe(false);
+    expect(canUseKind('basic', 'leo')).toBe(false);
+    expect(canUseKind('basic', 'schedule')).toBe(false);
     expect(canUseKind('pro', 'quiz')).toBe(true);
+    expect(canUseKind('pro', 'leo')).toBe(true);
+    expect(canUseKind('trial', 'leo')).toBe(true);
     expect(canUseKind('free', 'leo')).toBe(false);
   });
 
@@ -90,6 +94,7 @@ describe('i18n', () => {
   it('falls back to English', () => {
     expect(t('unknown', 'aiMeter')).toBe('AI Meter');
     expect(t('en', 'leo')).toBe('Leo');
+    expect(t('hi', 'editGoal')).toBe('Edit goal');
   });
 
   it('does not report empty locales', () => {

@@ -12,11 +12,12 @@ import * as Linking from 'expo-linking';
 import { AiGeneration, Session, Task, TaskCategory, UserSettings } from '@/types';
 import { auth } from '@/services/auth';
 import { extractAuthCodeFromUrl, isAuthCallbackUrl } from '@/lib/auth-callback';
-import { configurePurchases, customerInfo } from '@/services/subscriptions';
+import { configurePurchases, customerInfo, listenForCustomerInfo } from '@/services/subscriptions';
 import { hydrateProfile } from '@/services/profile';
 import { defaultSettings, studyData, StudyGoal } from '@/services/study-data';
 import { addDays, startOfDay } from '@/lib/dates';
 import { calculateStreak } from '@/lib/streak';
+import { syncLocalReminders } from '@/services/notifications';
 
 type Store = {
   session: Session | null;
@@ -45,6 +46,10 @@ type Store = {
   ) => Promise<void>;
   deleteTask: (id: string) => Promise<void>;
   addGoal: (title: string, targetValue: number, unit?: string, dueAt?: string | null) => Promise<void>;
+  updateGoal: (
+    id: string,
+    patch: { title?: string; targetValue?: number; unit?: string; dueAt?: string | null },
+  ) => Promise<void>;
   updateGoalProgress: (id: string, currentValue: number) => Promise<void>;
   deleteGoal: (id: string) => Promise<void>;
   refreshSubscription: () => Promise<void>;
@@ -100,6 +105,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setSettings(nextSettings);
     setStreak(calculateStreak(days));
     setAiHistory(history);
+    void syncLocalReminders(nextSettings);
   }, []);
 
   const establish = useCallback(
@@ -203,6 +209,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
   }, [establish, clearUserData]);
 
+  useEffect(() => {
+    if (!session?.id) {
+      return;
+    }
+
+    return listenForCustomerInfo((sub) => {
+      setSession((current) =>
+        current
+          ? {
+              ...current,
+              plan: sub.plan,
+              subscriptionStatus: sub.status,
+              trialEndsAt: sub.expiresAt,
+              productId: sub.productId,
+              willRenew: sub.willRenew,
+            }
+          : current,
+      );
+    });
+  }, [session?.id]);
+
   const value = useMemo<Store>(
     () => ({
       session,
@@ -281,7 +308,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
 
         await studyData.saveSettings(session.id, patch);
-        setSettings((current) => ({ ...current, ...patch }));
+        const nextSettings = { ...settings, ...patch };
+        setSettings(nextSettings);
+        void syncLocalReminders(nextSettings);
 
         if (patch.language) {
           I18nManager.allowRTL(patch.language === 'ar');
@@ -341,6 +370,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
         const saved = await studyData.addGoal(session.id, title, targetValue, unit, dueAt);
         setGoals((list) => [...list, saved]);
+      },
+
+      async updateGoal(id, patch) {
+        if (!session) {
+          throw Error('Sign in to update goals.');
+        }
+
+        const saved = await studyData.updateGoal(id, patch);
+        setGoals((list) => list.map((goal) => (goal.id === id ? saved : goal)));
       },
 
       async updateGoalProgress(id, currentValue) {

@@ -155,4 +155,22 @@ export async function customerInfo() {
   return subscriptionFromCustomerInfo(await Purchases.getCustomerInfo());
 }
 
+export function listenForCustomerInfo(
+  callback: (info: ReturnType<typeof subscriptionFromCustomerInfo>) => void,
+) {
+  if (!isRevenueCatConfigured() || Platform.OS === 'web') {
+    return () => undefined;
+  }
+
+  const listener = (info: CustomerInfo) => {
+    callback(subscriptionFromCustomerInfo(info));
+  };
+
+  Purchases.addCustomerInfoUpdateListener(listener);
+
+  return () => {
+    Purchases.removeCustomerInfoUpdateListener(listener);
+  };
+}
+
 export { PRODUCT_IDS };

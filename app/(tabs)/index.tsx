@@ -101,7 +101,7 @@ export default function Home() {
               <Pressable style={{ flex: 1 }} onPress={() => router.push(`/task/${task.id}`)}>
                 <Text style={[s.taskTitle, task.done && s.done]}>{task.title}</Text>
                 <Text style={s.time}>
-                  {task.time}
+                  {task.scheduledAt ? task.time : tr('anyTime')}
                   {isOverdue(task.scheduledAt, task.done) ? ` · ${tr('overdue')}` : ''}
                 </Text>
               </Pressable>

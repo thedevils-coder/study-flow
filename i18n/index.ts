@@ -24,6 +24,25 @@ export const languages = [
 
 export type Language = (typeof languages)[number][0];
 
+const supported = new Set(languages.map(([code]) => code));
+
+/** Resolves a device/locale code to a supported Study Flow language, then English. */
+export const resolveLanguage = (code?: string | null): Language => {
+  const base = (code ?? '').toLowerCase().split('-')[0];
+  if (base && supported.has(base as Language)) {
+    return base as Language;
+  }
+  return 'en';
+};
+
+export const deviceLanguage = (): Language => {
+  try {
+    return resolveLanguage(Intl.DateTimeFormat().resolvedOptions().locale);
+  } catch {
+    return 'en';
+  }
+};
+
 export { en };
 export type { CopyKey };
 

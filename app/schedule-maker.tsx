@@ -15,7 +15,7 @@ import { colors } from '@/constants/theme';
 import { useApp } from '@/store/app-store';
 import { t } from '@/i18n';
 import { generateAi } from '@/services/ai';
-import { getTier, hasBasicAi } from '@/lib/entitlements';
+import { getTier, canUseKind } from '@/lib/entitlements';
 
 type Suggestion = {
   title: string;
@@ -56,7 +56,7 @@ export default function ScheduleMaker() {
   const tier = getTier(session);
 
   const generate = async () => {
-    if (!hasBasicAi(tier)) {
+    if (!canUseKind(tier, 'schedule')) {
       router.push('/subscription');
       return;
     }
@@ -135,7 +135,7 @@ export default function ScheduleMaker() {
         <TextInput
           value={availableTime}
           onChangeText={setAvailableTime}
-          placeholder="18:00-21:00"
+          placeholder={tr('availableTimeHint')}
           placeholderTextColor={colors.muted}
           style={s.input}
         />

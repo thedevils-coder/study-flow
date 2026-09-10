@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { router } from 'expo-router';
 import {
   Alert,
@@ -15,23 +15,26 @@ import { Card, Row } from '@/components/ui';
 import { colors } from '@/constants/theme';
 import { useApp } from '@/store/app-store';
 import { languages, t } from '@/i18n';
-import { achievementsFromActivity } from '@/services/achievements';
+import { achievementsFromActivity, achievementLabelKey } from '@/services/achievements';
 import { getTier } from '@/lib/entitlements';
+import { studyData } from '@/services/study-data';
 
 export default function Profile() {
   const { session, signOut, setLanguage, streak, tasks, goals, aiHistory } = useApp();
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
+  const [focusStats, setFocusStats] = useState({ count: 0, totalSeconds: 0 });
   const tr = (key: string) => t(session!.language, key);
   const tier = getTier(session);
   const achievements = useMemo(
     () =>
       achievementsFromActivity({
-        sessions: [],
+        sessionCount: focusStats.count,
+        focusSeconds: focusStats.totalSeconds,
         tasks,
         goals,
         currentStreak: streak.current,
       }).filter((item) => item.earned),
-    [tasks, goals, streak],
+    [tasks, goals, streak, focusStats],
   );
 
   const invite = async () => {
@@ -41,6 +44,13 @@ export default function Profile() {
       Alert.alert(tr('inviteFriends'), tr('noReferralRewards'));
     }
   };
+
+  useEffect(() => {
+    if (!session) {
+      return;
+    }
+    void studyData.focusStats(session.id).then(setFocusStats).catch(() => undefined);
+  }, [session, streak]);
 
   return (
     <SafeAreaView style={s.page}>
@@ -76,7 +86,7 @@ export default function Profile() {
               Alert.alert(
                 tr('achievements'),
                 achievements.length
-                  ? achievements.map((item) => tr(item.id === 'first_focus' ? 'firstFocus' : item.id === 'streak_3' ? 'streak3' : item.id === 'streak_7' ? 'streak7' : item.id === 'tasks_10' ? 'tasks10' : item.id === 'goal_complete' ? 'goalComplete' : 'study5h')).join('\n')
+                  ? achievements.map((item) => tr(achievementLabelKey(item.id))).join('\n')
                   : tr('noAchievementsYet'),
               )
             }

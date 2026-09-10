@@ -139,7 +139,7 @@ export default function Planner() {
                 <Pressable style={styles.taskInfo} onPress={() => router.push(`/task/${task.id}`)}>
                   <Text style={[styles.taskTitle, task.done && styles.taskDone]}>{task.title}</Text>
                   <Text style={styles.taskTime}>
-                    {task.time}
+                    {task.scheduledAt ? task.time : tr('anyTime')}
                     {isOverdue(task.scheduledAt, task.done) ? ` · ${tr('overdue')}` : ''}
                   </Text>
                 </Pressable>

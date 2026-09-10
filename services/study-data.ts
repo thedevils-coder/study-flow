@@ -48,7 +48,7 @@ const timeFor = (scheduledAt: string | null) =>
         hour: 'numeric',
         minute: '2-digit',
       }).format(new Date(scheduledAt))
-    : 'Any time';
+    : '';
 
 const mapTask = (task: DbTask): Task => ({
   id: task.id,
@@ -423,6 +423,43 @@ export const studyData = {
     return mapGoal(data as DbGoal);
   },
 
+  async updateGoal(
+    goalId: string,
+    patch: {
+      title?: string;
+      targetValue?: number;
+      unit?: string;
+      dueAt?: string | null;
+    },
+  ) {
+    if (!isSupabaseConfigured) {
+      throw Error('Supabase is not configured.');
+    }
+
+    if (patch.targetValue !== undefined && (!Number.isInteger(patch.targetValue) || patch.targetValue < 1)) {
+      throw Error('Goal target must be a positive whole number.');
+    }
+
+    const { data, error } = await getSupabase()
+      .from('study_goals')
+      .update({
+        ...(patch.title !== undefined ? { title: patch.title } : {}),
+        ...(patch.targetValue !== undefined ? { target_value: patch.targetValue } : {}),
+        ...(patch.unit !== undefined ? { unit: patch.unit } : {}),
+        ...(patch.dueAt !== undefined ? { due_at: patch.dueAt } : {}),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', goalId)
+      .select(goalSelect)
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    return mapGoal(data as DbGoal);
+  },
+
   async updateGoalProgress(goalId: string, currentValue: number) {
     if (!isSupabaseConfigured) {
       throw Error('Supabase is not configured.');
@@ -478,6 +515,27 @@ export const studyData = {
     }
 
     return (data ?? []).map((row) => mapGeneration(row as DbGeneration));
+  },
+
+  async focusStats(userId: string) {
+    if (!isSupabaseConfigured) {
+      return { count: 0, totalSeconds: 0 };
+    }
+
+    const { data, error } = await getSupabase()
+      .from('focus_sessions')
+      .select('duration_seconds')
+      .eq('user_id', userId);
+
+    if (error) {
+      throw error;
+    }
+
+    const rows = data ?? [];
+    return {
+      count: rows.length,
+      totalSeconds: rows.reduce((sum, row) => sum + (Number(row.duration_seconds) || 0), 0),
+    };
   },
 
   async deleteAiGeneration(id: string) {

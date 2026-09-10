@@ -22,6 +22,7 @@ export default function Goals() {
     session,
     goals,
     addGoal,
+    updateGoal,
     updateGoalProgress,
     deleteGoal,
   } = useApp();
@@ -29,8 +30,23 @@ export default function Goals() {
   const [title, setTitle] = useState('');
   const [target, setTarget] = useState('');
   const [dueDate, setDueDate] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const tr = (key: string) => t(session?.language || 'en', key);
+
+  const resetForm = () => {
+    setTitle('');
+    setTarget('');
+    setDueDate('');
+    setEditingId(null);
+  };
+
+  const beginEdit = (goal: StudyGoal) => {
+    setEditingId(goal.id);
+    setTitle(goal.title);
+    setTarget(String(goal.targetValue));
+    setDueDate(goal.dueAt ? goal.dueAt.slice(0, 10) : '');
+  };
 
   const createGoal = async () => {
     const cleanTitle = title.trim();
@@ -56,16 +72,18 @@ export default function Goals() {
 
     try {
       const dueAt = dueDate ? new Date(`${dueDate}T23:59:00`).toISOString() : null;
-      await addGoal(
-        cleanTitle,
-        targetValue,
-        'hours',
-        dueAt,
-      );
+      if (editingId) {
+        await updateGoal(editingId, {
+          title: cleanTitle,
+          targetValue,
+          unit: 'hours',
+          dueAt,
+        });
+      } else {
+        await addGoal(cleanTitle, targetValue, 'hours', dueAt);
+      }
 
-      setTitle('');
-      setTarget('');
-      setDueDate('');
+      resetForm();
     } catch {
       Alert.alert(
         tr('goals'),
@@ -150,7 +168,7 @@ export default function Goals() {
 
         <Card style={s.createCard}>
           <Text style={s.sectionTitle}>
-            {tr('createGoal')}
+            {editingId ? tr('editGoal') : tr('createGoal')}
           </Text>
 
           <TextInput
@@ -174,7 +192,7 @@ export default function Goals() {
           <TextInput
             value={dueDate}
             onChangeText={setDueDate}
-            placeholder={`${tr('dueDate')} (YYYY-MM-DD)`}
+            placeholder={`${tr('dueDate')} (${tr('dueDateHint')})`}
             placeholderTextColor={colors.muted}
             style={s.input}
           />
@@ -188,7 +206,7 @@ export default function Goals() {
             ]}
           >
             <Text style={s.primaryButtonText}>
-              {saving ? tr('saving') : tr('addGoal')}
+              {saving ? tr('saving') : editingId ? tr('saveGoal') : tr('addGoal')}
             </Text>
           </Pressable>
         </Card>
@@ -238,16 +256,26 @@ export default function Goals() {
                     </Text>
                   </View>
 
-                  <Pressable
-                    onPress={() =>
-                      removeGoal(goal)
-                    }
-                    hitSlop={10}
-                  >
-                    <Text style={s.deleteText}>
-                      {tr('deleteTask')}
-                    </Text>
-                  </Pressable>
+                  <View style={s.goalActions}>
+                    <Pressable
+                      onPress={() => beginEdit(goal)}
+                      hitSlop={10}
+                    >
+                      <Text style={s.editText}>
+                        {tr('editGoal')}
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() =>
+                        removeGoal(goal)
+                      }
+                      hitSlop={10}
+                    >
+                      <Text style={s.deleteText}>
+                        {tr('deleteTask')}
+                      </Text>
+                    </Pressable>
+                  </View>
                 </View>
 
                 <View style={s.progressTrack}>
@@ -441,6 +469,11 @@ const s = StyleSheet.create({
     flex: 1,
   },
 
+  goalActions: {
+    alignItems: 'flex-end',
+    gap: 6,
+  },
+
   goalTitle: {
     fontSize: 17,
     fontWeight: '900',
@@ -457,6 +490,13 @@ const s = StyleSheet.create({
     color: '#B42318',
     fontSize: 13,
     fontWeight: '800',
+  },
+
+  editText: {
+    color: colors.purple,
+    fontSize: 13,
+    fontWeight: '800',
+    marginBottom: 8,
   },
 
   progressTrack: {

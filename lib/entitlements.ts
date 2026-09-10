@@ -77,8 +77,13 @@ export function canUseKind(
     return false;
   }
 
-  if (kind === 'flashcards' || kind === 'quiz') {
-    return hasProAi(tier);
+  if (
+    kind === 'flashcards' ||
+    kind === 'quiz' ||
+    kind === 'leo' ||
+    kind === 'schedule'
+  ) {
+    return hasProAi(tier) || tier === 'trial';
   }
 
   return true;

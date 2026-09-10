@@ -11,22 +11,25 @@ const ids: AchievementId[] = [
 ];
 
 export function achievementsFromActivity(input: {
-  sessions: FocusSession[];
+  sessions?: FocusSession[];
+  sessionCount?: number;
+  focusSeconds?: number;
   tasks: Task[];
   goals: StudyGoal[];
   currentStreak: number;
 }): Achievement[] {
-  const focusSeconds = input.sessions.reduce(
-    (total, session) => total + session.duration_seconds,
-    0,
-  );
+  const sessionCount = input.sessionCount ?? input.sessions?.length ?? 0;
+  const focusSeconds =
+    input.focusSeconds ??
+    input.sessions?.reduce((total, session) => total + session.duration_seconds, 0) ??
+    0;
   const completedTasks = input.tasks.filter((task) => task.done).length;
   const completedGoal = input.goals.some(
     (goal) => goal.targetValue > 0 && goal.currentValue >= goal.targetValue,
   );
 
   const earned: Record<AchievementId, boolean> = {
-    first_focus: input.sessions.length > 0,
+    first_focus: sessionCount > 0,
     streak_3: input.currentStreak >= 3,
     streak_7: input.currentStreak >= 7,
     tasks_10: completedTasks >= 10,
@@ -35,4 +38,21 @@ export function achievementsFromActivity(input: {
   };
 
   return ids.map((id) => ({ id, earned: earned[id] }));
+}
+
+export function achievementLabelKey(id: AchievementId) {
+  switch (id) {
+    case 'first_focus':
+      return 'firstFocus';
+    case 'streak_3':
+      return 'streak3';
+    case 'streak_7':
+      return 'streak7';
+    case 'tasks_10':
+      return 'tasks10';
+    case 'goal_complete':
+      return 'goalComplete';
+    case 'study_5h':
+      return 'study5h';
+  }
 }

@@ -15,7 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui';
 import { BRAND, colors } from '@/constants/theme';
 import { useApp } from '@/store/app-store';
-import { t } from '@/i18n';
+import { t, deviceLanguage } from '@/i18n';
 import { PHONE_AUTH_ENABLED } from '@/services/auth';
 
 type Mode = 'email' | 'phone';
@@ -41,7 +41,7 @@ export default function Welcome() {
     resetPassword,
   } = useApp();
 
-  const language = 'en';
+  const language = deviceLanguage();
   const tr = (key: string) => t(language, key);
 
   const run = async (action: () => Promise<void>, success?: { title: string; body: string }) => {
@@ -216,7 +216,7 @@ export default function Welcome() {
                 value={phone}
                 onChangeText={setPhone}
                 keyboardType="phone-pad"
-                placeholder="+91 98765 43210"
+                placeholder={tr('phonePlaceholder')}
                 placeholderTextColor={colors.muted}
                 style={s.input}
               />

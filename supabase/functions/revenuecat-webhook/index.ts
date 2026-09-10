@@ -23,7 +23,14 @@ Deno.serve(async (request) => {
           ? 'failed'
           : 'active';
 
-  const entitlementIds = Array.isArray(event.entitlement_ids) ? event.entitlement_ids : [];
+  const entitlementIds = [
+    ...(Array.isArray(event.entitlement_ids) ? event.entitlement_ids : []),
+    event.entitlement_id,
+  ].filter(Boolean);
+
+  if (String(event.period_type || event.periodType || '').toUpperCase() === 'TRIAL') {
+    entitlementIds.push('trial');
+  }
   const { error } = await admin.from('subscriptions').upsert({
     user_id: event.app_user_id,
     entitlement_id: entitlementIds[0] ?? event.entitlement_id ?? null,

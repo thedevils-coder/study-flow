@@ -17,7 +17,7 @@ import { colors } from '@/constants/theme';
 import { useApp } from '@/store/app-store';
 import { t } from '@/i18n';
 import { generateAi } from '@/services/ai';
-import { getTier, hasBasicAi } from '@/lib/entitlements';
+import { getTier, canUseKind } from '@/lib/entitlements';
 import { endOfWeek, startOfWeek } from '@/lib/dates';
 import { studyData } from '@/services/study-data';
 
@@ -34,7 +34,7 @@ export default function Leo() {
   const tier = getTier(session);
 
   const send = async () => {
-    if (!hasBasicAi(tier)) {
+    if (!canUseKind(tier, 'leo')) {
       router.push('/subscription');
       return;
     }
