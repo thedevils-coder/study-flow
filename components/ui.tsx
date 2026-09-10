@@ -59,18 +59,26 @@ export function Button({
         s.button,
         { backgroundColor: palette.purple },
         variant === 'light' && { backgroundColor: palette.lilac },
-        variant === 'danger' && s.danger,
+        variant === 'danger' && { backgroundColor: palette.dangerSoft },
         (disabled || loading) && s.disabled,
       ]}
     >
       {loading ? (
-        <ActivityIndicator color={variant === 'light' ? palette.purple : 'white'} />
+        <ActivityIndicator
+          color={
+            variant === 'light'
+              ? palette.purple
+              : variant === 'danger'
+                ? palette.danger
+                : 'white'
+          }
+        />
       ) : (
         <Text
           style={[
             s.buttonText,
             variant === 'light' && { color: palette.purple },
-            variant === 'danger' && s.dangerText,
+            variant === 'danger' && { color: palette.danger },
           ]}
         >
           {label}
@@ -202,12 +210,6 @@ const s = StyleSheet.create({
   },
   lightText: {
     color: colors.purple,
-  },
-  danger: {
-    backgroundColor: '#FDECEC',
-  },
-  dangerText: {
-    color: colors.danger,
   },
   disabled: {
     opacity: 0.6,
