@@ -1,6 +1,14 @@
 import { Session } from '@/types';
 import { getSupabase, isSupabaseConfigured } from '@/lib/supabase';
+import {
+  extractAccessTokenFromUrl,
+  extractAuthCodeFromUrl,
+  isAuthCallbackUrl,
+} from '@/lib/auth-callback';
 import * as Linking from 'expo-linking';
+import * as WebBrowser from 'expo-web-browser';
+
+WebBrowser.maybeCompleteAuthSession();
 
 const redirectTo = () => Linking.createURL('/');
 
@@ -52,6 +60,8 @@ export function toSession(user: {
 
 export const auth = {
   configured: isSupabaseConfigured,
+
+  redirectTo,
 
   async restore(): Promise<Session | null> {
     if (!isSupabaseConfigured) {
@@ -185,10 +195,11 @@ export const auth = {
       throw new Error('Supabase is not configured.');
     }
 
+    const redirect = redirectTo();
     const { data, error } = await getSupabase().auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: redirectTo(),
+        redirectTo: redirect,
         skipBrowserRedirect: true,
       },
     });
@@ -197,32 +208,33 @@ export const auth = {
       throw error;
     }
 
-    if (data.url) {
-      await Linking.openURL(data.url);
+    if (!data.url) {
+      throw new Error('Google sign-in did not return a URL.');
     }
 
-    return data;
+    const result = await WebBrowser.openAuthSessionAsync(data.url, redirect, {
+      showInRecents: true,
+    });
+
+    if (result.type === 'success' && result.url) {
+      return this.completeMagicLink(result.url);
+    }
+
+    return null;
   },
 
+  /**
+   * Completes PKCE (and email magic-link) return URLs by exchanging `code`.
+   * Used for both in-app WebBrowser results and Linking cold/warm starts.
+   */
   async completeMagicLink(url: string): Promise<Session | null> {
-    if (!isSupabaseConfigured) {
+    if (!isSupabaseConfigured || !isAuthCallbackUrl(url)) {
       return null;
     }
 
-    const parsed = new URL(url);
-    const code = parsed.searchParams.get('code');
+    const code = extractAuthCodeFromUrl(url);
 
-    if (!code) {
-      const accessToken = parsed.hash
-        .replace(/^#/, '')
-        .split('&')
-        .find((part) => part.startsWith('access_token='))
-        ?.split('=')[1];
-
-      if (!accessToken) {
-        return this.restore();
-      }
-    } else {
+    if (code) {
       const { data, error } = await getSupabase().auth.exchangeCodeForSession(code);
 
       if (error) {
@@ -230,6 +242,10 @@ export const auth = {
       }
 
       return data.user ? toSession(data.user) : null;
+    }
+
+    if (extractAccessTokenFromUrl(url)) {
+      return this.restore();
     }
 
     return this.restore();

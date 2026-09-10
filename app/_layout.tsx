@@ -1,5 +1,8 @@
 import { Stack } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import { AppProvider } from '@/store/app-store';
+
+WebBrowser.maybeCompleteAuthSession();
 
 export default function Layout() {
   return (

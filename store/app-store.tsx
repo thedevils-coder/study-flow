@@ -8,8 +8,10 @@ import React, {
   useState,
 } from 'react';
 import { I18nManager } from 'react-native';
+import * as Linking from 'expo-linking';
 import { AiGeneration, Session, Task, TaskCategory, UserSettings } from '@/types';
 import { auth } from '@/services/auth';
+import { extractAuthCodeFromUrl, isAuthCallbackUrl } from '@/lib/auth-callback';
 import { configurePurchases, customerInfo } from '@/services/subscriptions';
 import { hydrateProfile } from '@/services/profile';
 import { defaultSettings, studyData, StudyGoal } from '@/services/study-data';
@@ -140,11 +142,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let live = true;
+    const handledCodes = new Set<string>();
 
-    const fromUrl = async (url: string) => {
-      const signedIn = await auth.completeMagicLink(url);
-      if (signedIn && live) {
-        await establish(signedIn);
+    const consumeAuthUrl = async (url: string | null) => {
+      if (!url || !isAuthCallbackUrl(url)) {
+        return;
+      }
+
+      const key = extractAuthCodeFromUrl(url) ?? url;
+      if (handledCodes.has(key)) {
+        return;
+      }
+      handledCodes.add(key);
+
+      try {
+        const signedIn = await auth.completeMagicLink(url);
+        if (signedIn && live) {
+          await establish(signedIn);
+        }
+      } catch {
+        handledCodes.delete(key);
       }
     };
 
@@ -155,7 +172,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           await establish(current);
         }
       })
+      .then(async () => {
+        await consumeAuthUrl(await Linking.getInitialURL());
+      })
       .finally(() => live && setReady(true));
+
+    const linking = Linking.addEventListener('url', ({ url }) => {
+      void consumeAuthUrl(url);
+    });
 
     const subscription = auth.onAuthChange(async (next) => {
       if (!live) {
@@ -174,6 +198,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       live = false;
+      linking.remove();
       subscription.data.subscription.unsubscribe();
     };
   }, [establish, clearUserData]);
@@ -207,7 +232,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       },
 
       async signInWithGoogle() {
-        await auth.signInWithGoogle();
+        const next = await auth.signInWithGoogle();
+        if (next) {
+          await establish(next);
+        }
       },
 
       async sendPhoneCode(phone) {
