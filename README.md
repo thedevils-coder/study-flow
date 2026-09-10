@@ -1,6 +1,10 @@
 # Study Flow
 
-An Expo Router / TypeScript mobile implementation of the supplied Study Flow portfolio: Home, Planner, Focus, Study Shield integration point, Progress, Profile, multilingual preferences, subscription architecture, and a protected admin preview.
+An Expo Router / TypeScript mobile app for planning, focus, progress and Leo, Study Flow's personal AI study assistant.
+
+**BUILT FOR DREAMERS. MADE FOR ACHIEVERS.**
+
+Launch: 12 September, 7:00 PM IST · https://getstudyflow.in
 
 ## Run
 
@@ -9,31 +13,71 @@ npm install
 npx expo start
 ```
 
-Open the QR code in Expo Go for UI and Supabase email-link testing. Authentication uses Supabase Email OTP; authorization is read from the authenticated user’s Supabase profile. Admin access is never granted from an email prefix.
+Authentication uses the existing Supabase project. Email magic links, email/password, Google OAuth and phone OTP are implemented in the client. Enable the matching providers in the Supabase dashboard. Resend SMTP should send from `auth.getstudyflow.in`. Redirect URLs must stay on trusted domains (`studyflow://` and `https://getstudyflow.in`). Do not use wildcard redirects.
 
 ## Architecture
 
-- `app/`: Expo Router screens and guarded routes
-- `components/`: shared visual primitives
-- `services/`: auth persistence, pricing, and billing contracts
-- `store/`: application state
-- `supabase/migrations/`: schema, RLS, and Study Flow data tables
-- `i18n/`: supported language registry and UI copy
+- `app/`: Expo Router screens
+- `components/`: shared UI
+- `services/`: Supabase data, auth, RevenueCat, AI client
+- `store/`: session-scoped application state (cleared on account switch)
+- `supabase/migrations/`: additive schema, RLS
+- `supabase/functions/`: RevenueCat webhook, `ai-generate`, `delete-account`
+- `i18n/`: translations
+- `website/`: public site for getstudyflow.in
+- `docs/launch-markets.md`: store availability checklist
 
-## Supabase setup
+## Supabase
 
-1. Create a Supabase project, then copy its Project URL and **publishable** key into a local `.env` based on `.env.example`.
-2. In Authentication, enable Email OTP and set the redirect URL to `studyflow://` (add your production universal/app links too).
-3. Install the Supabase CLI, run `supabase link --project-ref <your-ref>`, then `supabase db push` to apply `supabase/migrations/202608080001_study_flow.sql`.
-   This also applies the task, goal, focus-session, and settings migration; all records are owner-scoped with RLS.
-4. Assign an admin only through the protected database/dashboard, e.g. update the profile role after verifying the user. The client cannot assign its own role.
-5. In Edge Function secrets, set `REVENUECAT_WEBHOOK_SECRET`, `SUPABASE_SERVICE_ROLE_KEY`, and, only for server-side RevenueCat API work, `REVENUECAT_SECRET_API_KEY`. Do not add any of these to `.env` or the mobile app. Deploy with `supabase functions deploy revenuecat-webhook --no-verify-jwt`.
+1. Copy `.env.example` to `.env` with the **publishable** key only.
+2. `supabase db push` applies migrations. Do not rewrite historical `focus_sessions` or `study_tasks` dates.
+3. Assign admin by updating `profiles.role` in the dashboard. The client cannot grant admin.
+4. Edge Function secrets (never in the mobile app):
+   - `SUPABASE_SERVICE_ROLE_KEY`
+   - `REVENUECAT_WEBHOOK_SECRET`
+   - `AI_API_KEY` (and optional `AI_API_URL`, `AI_MODEL`)
+   - optional `REVENUECAT_SECRET_API_KEY`
+5. Deploy:
+   - `supabase functions deploy revenuecat-webhook --no-verify-jwt`
+   - `supabase functions deploy ai-generate`
+   - `supabase functions deploy delete-account`
 
-## RevenueCat setup
+AI requests are authenticated, usage-limited and stored in `ai_generations`. The mobile client never receives provider API keys.
 
-1. Create a RevenueCat project and add iOS and Android apps. Put only the corresponding **public app SDK keys** in `EXPO_PUBLIC_REVENUECAT_IOS_API_KEY` and `EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY`.
-2. Create one App Store Connect / Google Play monthly subscription at ₹99/month. Configure its **15-day free introductory trial in the store**, then import it into a RevenueCat offering with a package identifier containing `monthly`. Attach it to the `premium` entitlement (or change `EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID`). Do not create a ₹0 product and do not configure a separate trial package.
-3. Configure RevenueCat’s webhook to the deployed `revenuecat-webhook` URL using the same webhook secret. This function is the server-side source for trial, renewal, cancellation, expiration, and payment-failure state.
-4. Install dependencies, then create a development build (`npx expo install expo-dev-client && npx expo prebuild && eas build --profile development`). Real iOS/Android IAP cannot run in Expo Go; RevenueCat Preview API mode is the Expo Go-only alternative and never grants real access.
+## RevenueCat
 
-Prices, entitlements, admin authorization, payment verification and webhook updates are server-authoritative. No payment secret belongs in this app. Study Shield also needs a development build for native controls.
+Public SDK keys only:
+
+- `EXPO_PUBLIC_REVENUECAT_IOS_API_KEY`
+- `EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY`
+
+Products (store configuration is the source of truth):
+
+- `studyflow_basic_monthly`
+- `studyflow_basic_yearly`
+- `studyflow_pro_monthly`
+- `studyflow_pro_yearly`
+
+Configure a 15-day introductory trial on the store products. Entitlements: `basic` and `pro`. Legacy `premium` is treated as Basic. Display defaults: Basic ₹99/month and ₹1,000/year; Pro ₹299/month and ₹2,500/year (₹1,088 annual save vs 12× monthly). Localized store prices always win.
+
+Real IAP needs a development or production build. Expo Go cannot complete store purchases.
+
+## Website
+
+Static files in `website/` are intended for https://getstudyflow.in. Do not use `auth.getstudyflow.in` as the public site.
+
+## Android production
+
+```bash
+eas build --platform android --profile production
+```
+
+Submit an AAB, not an APK.
+
+## Checks
+
+```bash
+npm run typecheck
+npm run lint
+npm test
+```

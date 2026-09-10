@@ -15,6 +15,7 @@ import { Card } from '@/components/ui';
 import { colors } from '@/constants/theme';
 import { StudyGoal } from '@/services/study-data';
 import { useApp } from '@/store/app-store';
+import { t } from '@/i18n';
 
 export default function Goals() {
   const {
@@ -27,14 +28,16 @@ export default function Goals() {
 
   const [title, setTitle] = useState('');
   const [target, setTarget] = useState('');
+  const [dueDate, setDueDate] = useState('');
   const [saving, setSaving] = useState(false);
+  const tr = (key: string) => t(session?.language || 'en', key);
 
   const createGoal = async () => {
     const cleanTitle = title.trim();
     const targetValue = Number(target);
 
     if (!cleanTitle) {
-      Alert.alert('Goal', 'Please enter a goal name.');
+      Alert.alert(tr('goals'), tr('requiredField'));
       return;
     }
 
@@ -43,8 +46,8 @@ export default function Goals() {
       targetValue < 1
     ) {
       Alert.alert(
-        'Goal',
-        'Please enter a positive whole-number target.',
+        tr('goals'),
+        tr('requiredField'),
       );
       return;
     }
@@ -52,19 +55,21 @@ export default function Goals() {
     setSaving(true);
 
     try {
+      const dueAt = dueDate ? new Date(`${dueDate}T23:59:00`).toISOString() : null;
       await addGoal(
         cleanTitle,
         targetValue,
         'hours',
-        null,
+        dueAt,
       );
 
       setTitle('');
       setTarget('');
+      setDueDate('');
     } catch {
       Alert.alert(
-        'Goal',
-        'Unable to save the goal.',
+        tr('goals'),
+        tr('unableToSaveGoal'),
       );
     } finally {
       setSaving(false);
@@ -87,31 +92,31 @@ export default function Goals() {
       );
     } catch {
       Alert.alert(
-        'Goal',
-        'Unable to update goal progress.',
+        tr('goals'),
+        tr('unableToUpdateGoal'),
       );
     }
   };
 
   const removeGoal = (goal: StudyGoal) => {
     Alert.alert(
-      'Delete goal',
-      `Delete "${goal.title}"?`,
+      tr('deleteGoal'),
+      `${tr('confirmDeleteGoal')} ${goal.title}`,
       [
         {
-          text: 'Cancel',
+          text: tr('cancel'),
           style: 'cancel',
         },
         {
-          text: 'Delete',
+          text: tr('deleteTask'),
           style: 'destructive',
           onPress: async () => {
             try {
               await deleteGoal(goal.id);
             } catch {
               Alert.alert(
-                'Goal',
-                'Unable to delete the goal.',
+                tr('goals'),
+                tr('unableToDeleteGoal'),
               );
             }
           },
@@ -134,24 +139,24 @@ export default function Goals() {
             <Text style={s.backText}>‹</Text>
           </Pressable>
 
-          <Text style={s.title}>Goals</Text>
+          <Text style={s.title}>{tr('goals')}</Text>
 
           <View style={s.headerSpacer} />
         </View>
 
         <Text style={s.subtitle}>
-          Set study targets and track your progress.
+          {tr('goalsSubtitle')}
         </Text>
 
         <Card style={s.createCard}>
           <Text style={s.sectionTitle}>
-            Create a goal
+            {tr('createGoal')}
           </Text>
 
           <TextInput
             value={title}
             onChangeText={setTitle}
-            placeholder="Goal name"
+            placeholder={tr('goalName')}
             placeholderTextColor={colors.muted}
             style={s.input}
             maxLength={160}
@@ -160,10 +165,18 @@ export default function Goals() {
           <TextInput
             value={target}
             onChangeText={setTarget}
-            placeholder="Target hours"
+            placeholder={tr('target')}
             placeholderTextColor={colors.muted}
             style={s.input}
             keyboardType="number-pad"
+          />
+
+          <TextInput
+            value={dueDate}
+            onChangeText={setDueDate}
+            placeholder={`${tr('dueDate')} (YYYY-MM-DD)`}
+            placeholderTextColor={colors.muted}
+            style={s.input}
           />
 
           <Pressable
@@ -175,23 +188,23 @@ export default function Goals() {
             ]}
           >
             <Text style={s.primaryButtonText}>
-              {saving ? 'Saving...' : 'Add goal'}
+              {saving ? tr('saving') : tr('addGoal')}
             </Text>
           </Pressable>
         </Card>
 
         <Text style={s.sectionHeading}>
-          Your goals
+          {tr('yourGoals')}
         </Text>
 
         {goals.length === 0 ? (
           <Card style={s.emptyCard}>
             <Text style={s.emptyTitle}>
-              No goals yet
+              {tr('noGoalsYet')}
             </Text>
 
             <Text style={s.emptyText}>
-              Create your first study goal above.
+              {tr('createFirstGoal')}
             </Text>
           </Card>
         ) : (
@@ -232,7 +245,7 @@ export default function Goals() {
                     hitSlop={10}
                   >
                     <Text style={s.deleteText}>
-                      Delete
+                      {tr('deleteTask')}
                     </Text>
                   </Pressable>
                 </View>
@@ -249,7 +262,10 @@ export default function Goals() {
                 </View>
 
                 <Text style={s.percentText}>
-                  {percentage}% complete
+                  {percentage}% {tr('percentComplete')}
+                  {goal.dueAt && new Date(goal.dueAt) < new Date() && goal.currentValue < goal.targetValue
+                    ? ` · ${tr('overdueGoal')}`
+                    : ''}
                 </Text>
 
                 <View style={s.controls}>

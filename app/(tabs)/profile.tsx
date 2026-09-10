@@ -1,118 +1,100 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { router } from 'expo-router';
 import {
   Alert,
   Modal,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
 import { Card, Row } from '@/components/ui';
 import { colors } from '@/constants/theme';
 import { useApp } from '@/store/app-store';
 import { languages, t } from '@/i18n';
+import { achievementsFromActivity } from '@/services/achievements';
+import { getTier } from '@/lib/entitlements';
 
 export default function Profile() {
-  const { session, signOut, setLanguage } = useApp();
+  const { session, signOut, setLanguage, streak, tasks, goals, aiHistory } = useApp();
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
-
   const tr = (key: string) => t(session!.language, key);
+  const tier = getTier(session);
+  const achievements = useMemo(
+    () =>
+      achievementsFromActivity({
+        sessions: [],
+        tasks,
+        goals,
+        currentStreak: streak.current,
+      }).filter((item) => item.earned),
+    [tasks, goals, streak],
+  );
 
-  const changeLanguage = () => {
-    setLanguageModalVisible(true);
-  };
-
-  const selectLanguage = (code: (typeof languages)[number][0]) => {
-    setLanguage(code);
-    setLanguageModalVisible(false);
+  const invite = async () => {
+    try {
+      await Share.share({ message: tr('inviteMessage'), title: tr('inviteTitle') });
+    } catch {
+      Alert.alert(tr('inviteFriends'), tr('noReferralRewards'));
+    }
   };
 
   return (
     <SafeAreaView style={s.page}>
       <ScrollView contentContainerStyle={s.scroll}>
         <Text style={s.title}>{tr('profile')}</Text>
-
         <Card style={s.person}>
           <View style={s.avatar}>
             <Text style={s.avatarText}>🎓</Text>
           </View>
-
-          <View>
+          <View style={{ flex: 1 }}>
             <Text style={s.name}>{session!.name}</Text>
-            <Text style={s.muted}>{session!.email}</Text>
+            <Text style={s.muted}>{session!.email || session!.phone}</Text>
+            <Text style={s.muted}>
+              {tr('subscription')}: {tr(tier === 'free' ? 'noPlan' : tier)}
+            </Text>
           </View>
         </Card>
-
         <View style={s.streak}>
           <Text style={s.streakText}>
-            {tr('streak')} · 7 {tr('days')} 🔥
+            {tr('streak')} · {streak.current} {tr('days')} 🔥
           </Text>
         </View>
-
         <Card>
-          <Row
-            icon="locate-outline"
-            label={tr('goals')}
-            onPress={() => router.push({ pathname: '/goals' } as any)}
-         />
-
+          <Row icon="sparkles-outline" label={tr('aiMeter')} onPress={() => router.push('/ai-meter')} />
+          <Row icon="chatbubble-ellipses-outline" label={tr('leo')} onPress={() => router.push('/leo')} />
+          <Row icon="calendar-outline" label={tr('studySchedule')} onPress={() => router.push('/schedule-maker')} />
+          <Row icon="locate-outline" label={tr('goals')} onPress={() => router.push('/goals')} />
           <Row
             icon="trophy-outline"
             label={tr('achievements')}
+            value={String(achievements.length)}
             onPress={() =>
               Alert.alert(
                 tr('achievements'),
-                '7-Day Streak · Focus Master · Early Bird',
+                achievements.length
+                  ? achievements.map((item) => tr(item.id === 'first_focus' ? 'firstFocus' : item.id === 'streak_3' ? 'streak3' : item.id === 'streak_7' ? 'streak7' : item.id === 'tasks_10' ? 'tasks10' : item.id === 'goal_complete' ? 'goalComplete' : 'study5h')).join('\n')
+                  : tr('noAchievementsYet'),
               )
             }
           />
-
-          <Row
-            icon="bar-chart-outline"
-            label={tr('statistics')}
-            onPress={() => router.push('/(tabs)/progress')}
-          />
-
-          <Row
-            icon="card-outline"
-            label={tr('subscription')}
-            onPress={() => router.push('/subscription')}
-          />
-
+          <Row icon="bar-chart-outline" label={tr('statistics')} onPress={() => router.push('/(tabs)/progress')} />
+          <Row icon="card-outline" label={tr('subscription')} onPress={() => router.push('/subscription')} />
           <Row
             icon="language-outline"
             label={tr('language')}
-            value={
-              languages.find(
-                (item) => item[0] === session!.language,
-              )?.[1]
-            }
-            onPress={changeLanguage}
+            value={languages.find((item) => item[0] === session!.language)?.[1]}
+            onPress={() => setLanguageModalVisible(true)}
           />
-
-          <Row
-            icon="settings-outline"
-            label={tr('settings')}
-            onPress={() =>
-              Alert.alert(
-                tr('settings'),
-                'Theme, focus mode and reminder controls are ready for backend preference sync.',
-              )
-            }
-          />
-
+          <Row icon="settings-outline" label={tr('settings')} onPress={() => router.push('/settings')} />
+          <Row icon="people-outline" label={tr('inviteFriends')} onPress={invite} />
+          <Row icon="document-text-outline" label={tr('privacyPolicy')} onPress={() => router.push('/legal')} />
           {session!.role === 'admin' && (
-            <Row
-              icon="shield-checkmark-outline"
-              label={tr('admin')}
-              onPress={() => router.push('/admin')}
-            />
+            <Row icon="shield-checkmark-outline" label={tr('admin')} onPress={() => router.push('/admin')} />
           )}
-
           <Row
             icon="log-out-outline"
             label={tr('signOut')}
@@ -122,65 +104,28 @@ export default function Profile() {
             }}
           />
         </Card>
+        <Text style={s.note}>{aiHistory.length} · {tr('yourAiActivity')}</Text>
       </ScrollView>
-
-      <Modal
-        visible={languageModalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setLanguageModalVisible(false)}
-      >
+      <Modal visible={languageModalVisible} transparent animationType="slide" onRequestClose={() => setLanguageModalVisible(false)}>
         <View style={s.modalOverlay}>
-          <Pressable
-            style={StyleSheet.absoluteFill}
-            onPress={() => setLanguageModalVisible(false)}
-          />
-
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setLanguageModalVisible(false)} />
           <View style={s.modalCard}>
-            <View style={s.modalHeader}>
-              <Text style={s.modalTitle}>{tr('language')}</Text>
-
-              <Pressable
-                onPress={() => setLanguageModalVisible(false)}
-                hitSlop={10}
-              >
-                <Text style={s.closeButton}>✕</Text>
-              </Pressable>
-            </View>
-
-            <Text style={s.modalSubtitle}>
-              Choose your language
-            </Text>
-
-            <ScrollView
-              style={s.languageList}
-              contentContainerStyle={s.languageListContent}
-              showsVerticalScrollIndicator
-            >
+            <Text style={s.modalTitle}>{tr('language')}</Text>
+            <Text style={s.modalSubtitle}>{tr('chooseLanguage')}</Text>
+            <ScrollView style={s.languageList}>
               {languages.map(([code, name]) => {
                 const selected = code === session!.language;
-
                 return (
                   <Pressable
                     key={code}
-                    style={[
-                      s.languageOption,
-                      selected && s.languageOptionSelected,
-                    ]}
-                    onPress={() => selectLanguage(code)}
+                    style={[s.languageOption, selected && s.languageOptionSelected]}
+                    onPress={() => {
+                      setLanguage(code);
+                      setLanguageModalVisible(false);
+                    }}
                   >
-                    <Text
-                      style={[
-                        s.languageName,
-                        selected && s.languageNameSelected,
-                      ]}
-                    >
-                      {name}
-                    </Text>
-
-                    {selected && (
-                      <Text style={s.checkmark}>✓</Text>
-                    )}
+                    <Text style={[s.languageName, selected && s.languageNameSelected]}>{name}</Text>
+                    {selected ? <Text style={s.checkmark}>✓</Text> : null}
                   </Pressable>
                 );
               })}
@@ -193,28 +138,10 @@ export default function Profile() {
 }
 
 const s = StyleSheet.create({
-  page: {
-    flex: 1,
-    backgroundColor: 'white',
-  },
-
-  scroll: {
-    padding: 20,
-  },
-
-  title: {
-    fontSize: 26,
-    fontWeight: '900',
-    color: colors.ink,
-    marginBottom: 18,
-  },
-
-  person: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-  },
-
+  page: { flex: 1, backgroundColor: 'white' },
+  scroll: { padding: 20, paddingBottom: 40 },
+  title: { fontSize: 26, fontWeight: '900', color: colors.ink, marginBottom: 18 },
+  person: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   avatar: {
     width: 64,
     height: 64,
@@ -223,41 +150,13 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-
-  avatarText: {
-    fontSize: 34,
-  },
-
-  name: {
-    fontSize: 19,
-    fontWeight: '900',
-    color: colors.ink,
-  },
-
-  muted: {
-    color: colors.muted,
-    fontSize: 13,
-    marginTop: 4,
-  },
-
-  streak: {
-    backgroundColor: colors.purple,
-    borderRadius: 16,
-    padding: 18,
-    marginBottom: 14,
-  },
-
-  streakText: {
-    color: 'white',
-    fontWeight: '800',
-  },
-
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    justifyContent: 'flex-end',
-  },
-
+  avatarText: { fontSize: 34 },
+  name: { fontSize: 19, fontWeight: '900', color: colors.ink },
+  muted: { color: colors.muted, fontSize: 13, marginTop: 4 },
+  streak: { backgroundColor: colors.purple, borderRadius: 16, padding: 18, marginBottom: 14 },
+  streakText: { color: 'white', fontWeight: '800' },
+  note: { color: colors.muted, textAlign: 'center' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
   modalCard: {
     backgroundColor: 'white',
     borderTopLeftRadius: 24,
@@ -267,39 +166,9 @@ const s = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 28,
   },
-
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-
-  modalTitle: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: colors.ink,
-  },
-
-  closeButton: {
-    fontSize: 22,
-    color: colors.muted,
-  },
-
-  modalSubtitle: {
-    color: colors.muted,
-    fontSize: 14,
-    marginBottom: 14,
-  },
-
-  languageList: {
-    maxHeight: 500,
-  },
-
-  languageListContent: {
-    paddingBottom: 8,
-  },
-
+  modalTitle: { fontSize: 22, fontWeight: '900', color: colors.ink },
+  modalSubtitle: { color: colors.muted, fontSize: 14, marginBottom: 14, marginTop: 4 },
+  languageList: { maxHeight: 500 },
   languageOption: {
     minHeight: 52,
     borderRadius: 14,
@@ -310,24 +179,8 @@ const s = StyleSheet.create({
     justifyContent: 'space-between',
     backgroundColor: '#F7F7FA',
   },
-
-  languageOptionSelected: {
-    backgroundColor: colors.lilac,
-  },
-
-  languageName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.ink,
-  },
-
-  languageNameSelected: {
-    fontWeight: '800',
-  },
-
-  checkmark: {
-    fontSize: 20,
-    fontWeight: '900',
-    color: colors.purple,
-  },
+  languageOptionSelected: { backgroundColor: colors.lilac },
+  languageName: { fontSize: 16, fontWeight: '600', color: colors.ink },
+  languageNameSelected: { fontWeight: '800' },
+  checkmark: { fontSize: 20, fontWeight: '900', color: colors.purple },
 });

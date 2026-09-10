@@ -1,12 +1,13 @@
-import { Task } from '@/types';
+import { AiGeneration, AiKind, FocusSession, Task, TaskCategory, UserSettings } from '@/types';
 import { getSupabase, isSupabaseConfigured } from '@/lib/supabase';
+import { dayKey } from '@/lib/dates';
 
 type DbTask = {
   id: string;
   title: string;
   scheduled_at: string | null;
   duration_minutes: number | null;
-  category: Task['category'];
+  category: TaskCategory;
   completed_at: string | null;
 };
 
@@ -32,10 +33,13 @@ type DbGoal = {
   updated_at: string;
 };
 
-type FocusSession = {
-  started_at: string;
-  ended_at: string;
-  duration_seconds: number;
+type DbGeneration = {
+  id: string;
+  kind: AiKind;
+  prompt: string;
+  result_text: string | null;
+  created_at: string;
+  tokens_used: number | null;
 };
 
 const timeFor = (scheduledAt: string | null) =>
@@ -44,7 +48,7 @@ const timeFor = (scheduledAt: string | null) =>
         hour: 'numeric',
         minute: '2-digit',
       }).format(new Date(scheduledAt))
-    : 'Any time today';
+    : 'Any time';
 
 const mapTask = (task: DbTask): Task => ({
   id: task.id,
@@ -66,11 +70,28 @@ const mapGoal = (goal: DbGoal): StudyGoal => ({
   updatedAt: goal.updated_at,
 });
 
-const taskSelect =
-  'id,title,scheduled_at,duration_minutes,category,completed_at';
+const mapGeneration = (row: DbGeneration): AiGeneration => ({
+  id: row.id,
+  kind: row.kind,
+  prompt: row.prompt,
+  resultText: row.result_text ?? '',
+  createdAt: row.created_at,
+  tokensUsed: row.tokens_used,
+});
 
-const goalSelect =
-  'id,title,target_value,current_value,unit,due_at,created_at,updated_at';
+const taskSelect = 'id,title,scheduled_at,duration_minutes,category,completed_at';
+const goalSelect = 'id,title,target_value,current_value,unit,due_at,created_at,updated_at';
+
+export const defaultSettings = (language = 'en'): UserSettings => ({
+  language,
+  theme: 'light',
+  focusMode: 'pomodoro',
+  notificationsEnabled: true,
+  studyReminders: true,
+  goalReminders: true,
+  aiContextEnabled: true,
+  focusMinutes: 25,
+});
 
 export const studyData = {
   configured: isSupabaseConfigured,
@@ -84,10 +105,7 @@ export const studyData = {
       .from('study_tasks')
       .select(taskSelect)
       .eq('user_id', userId)
-      .order('scheduled_at', {
-        ascending: true,
-        nullsFirst: false,
-      });
+      .order('scheduled_at', { ascending: true, nullsFirst: false });
 
     if (error) {
       throw error;
@@ -99,7 +117,8 @@ export const studyData = {
   async addTask(
     userId: string,
     title: string,
-    scheduledAt: string,
+    scheduledAt: string | null,
+    category: TaskCategory = 'study',
   ) {
     if (!isSupabaseConfigured) {
       throw Error('Supabase is not configured.');
@@ -111,8 +130,39 @@ export const studyData = {
         user_id: userId,
         title,
         scheduled_at: scheduledAt,
-        category: 'study',
+        category,
       })
+      .select(taskSelect)
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    return mapTask(data as DbTask);
+  },
+
+  async updateTask(
+    taskId: string,
+    patch: {
+      title?: string;
+      scheduledAt?: string | null;
+      category?: TaskCategory;
+    },
+  ) {
+    if (!isSupabaseConfigured) {
+      throw Error('Supabase is not configured.');
+    }
+
+    const { data, error } = await getSupabase()
+      .from('study_tasks')
+      .update({
+        ...(patch.title !== undefined ? { title: patch.title } : {}),
+        ...(patch.scheduledAt !== undefined ? { scheduled_at: patch.scheduledAt } : {}),
+        ...(patch.category !== undefined ? { category: patch.category } : {}),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', taskId)
       .select(taskSelect)
       .single();
 
@@ -131,9 +181,7 @@ export const studyData = {
     const { data, error } = await getSupabase()
       .from('study_tasks')
       .update({
-        completed_at: task.done
-          ? null
-          : new Date().toISOString(),
+        completed_at: task.done ? new Date().toISOString() : null,
         updated_at: new Date().toISOString(),
       })
       .eq('id', task.id)
@@ -152,10 +200,7 @@ export const studyData = {
       throw Error('Supabase is not configured.');
     }
 
-    const { error } = await getSupabase()
-      .from('study_tasks')
-      .delete()
-      .eq('id', taskId);
+    const { error } = await getSupabase().from('study_tasks').delete().eq('id', taskId);
 
     if (error) {
       throw error;
@@ -163,6 +208,43 @@ export const studyData = {
   },
 
   async saveLanguage(userId: string, language: string) {
+    await this.saveSettings(userId, { language });
+  },
+
+  async settings(userId: string) {
+    if (!isSupabaseConfigured) {
+      return defaultSettings();
+    }
+
+    const { data, error } = await getSupabase()
+      .from('user_settings')
+      .select(
+        'language,theme,focus_mode,notifications_enabled,study_reminders,goal_reminders,ai_context_enabled,focus_minutes',
+      )
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (error) {
+      throw error;
+    }
+
+    if (!data) {
+      return defaultSettings();
+    }
+
+    return {
+      language: data.language || 'en',
+      theme: (data.theme as UserSettings['theme']) || 'light',
+      focusMode: (data.focus_mode as UserSettings['focusMode']) || 'pomodoro',
+      notificationsEnabled: data.notifications_enabled !== false,
+      studyReminders: data.study_reminders !== false,
+      goalReminders: data.goal_reminders !== false,
+      aiContextEnabled: data.ai_context_enabled !== false,
+      focusMinutes: Number(data.focus_minutes) > 0 ? Number(data.focus_minutes) : 25,
+    } satisfies UserSettings;
+  },
+
+  async saveSettings(userId: string, patch: Partial<UserSettings>) {
     if (!isSupabaseConfigured) {
       return;
     }
@@ -171,56 +253,64 @@ export const studyData = {
       .from('user_settings')
       .upsert({
         user_id: userId,
-        language,
+        ...(patch.language !== undefined ? { language: patch.language } : {}),
+        ...(patch.theme !== undefined ? { theme: patch.theme } : {}),
+        ...(patch.focusMode !== undefined ? { focus_mode: patch.focusMode } : {}),
+        ...(patch.notificationsEnabled !== undefined
+          ? { notifications_enabled: patch.notificationsEnabled }
+          : {}),
+        ...(patch.studyReminders !== undefined ? { study_reminders: patch.studyReminders } : {}),
+        ...(patch.goalReminders !== undefined ? { goal_reminders: patch.goalReminders } : {}),
+        ...(patch.aiContextEnabled !== undefined
+          ? { ai_context_enabled: patch.aiContextEnabled }
+          : {}),
+        ...(patch.focusMinutes !== undefined ? { focus_minutes: patch.focusMinutes } : {}),
         updated_at: new Date().toISOString(),
       });
 
     if (error) {
       throw error;
     }
+
+    if (patch.language) {
+      await getSupabase()
+        .from('profiles')
+        .update({ language: patch.language })
+        .eq('id', userId);
+    }
   },
 
-  async recordFocus(
-    userId: string,
-    startedAt: Date,
-    seconds: number,
-  ) {
+  async recordFocus(userId: string, startedAt: Date, seconds: number) {
     if (!isSupabaseConfigured || seconds < 1) {
       return;
     }
 
-    const { error } = await getSupabase()
-      .from('focus_sessions')
-      .insert({
-        user_id: userId,
-        started_at: startedAt.toISOString(),
-        ended_at: new Date().toISOString(),
-        duration_seconds: seconds,
-      });
+    const ended = new Date(startedAt.getTime() + seconds * 1000);
+
+    const { error } = await getSupabase().from('focus_sessions').insert({
+      user_id: userId,
+      started_at: startedAt.toISOString(),
+      ended_at: ended.toISOString(),
+      duration_seconds: seconds,
+    });
 
     if (error) {
       throw error;
     }
   },
 
-  async focusSessions(
-    userId: string,
-    start: Date,
-    end: Date,
-  ) {
+  async focusSessions(userId: string, start: Date, end: Date) {
     if (!isSupabaseConfigured) {
       return [] as FocusSession[];
     }
 
     const { data, error } = await getSupabase()
       .from('focus_sessions')
-      .select('started_at,ended_at,duration_seconds')
+      .select('id,started_at,ended_at,duration_seconds')
       .eq('user_id', userId)
       .gte('started_at', start.toISOString())
       .lt('started_at', end.toISOString())
-      .order('started_at', {
-        ascending: true,
-      });
+      .order('started_at', { ascending: true });
 
     if (error) {
       throw error;
@@ -229,44 +319,54 @@ export const studyData = {
     return (data ?? []) as FocusSession[];
   },
 
-  async focusDays(
-    userId: string,
-    start: Date,
-    end: Date,
-  ) {
+  async activityDays(userId: string, start: Date, end: Date) {
     if (!isSupabaseConfigured) {
       return [] as string[];
     }
 
-    const { data, error } = await getSupabase()
-      .from('focus_sessions')
-      .select('started_at')
-      .eq('user_id', userId)
-      .gte('started_at', start.toISOString())
-      .lt('started_at', end.toISOString())
-      .order('started_at', {
-        ascending: true,
-      });
+    const client = getSupabase();
 
-    if (error) {
-      throw error;
+    const [sessions, tasks] = await Promise.all([
+      client
+        .from('focus_sessions')
+        .select('started_at')
+        .eq('user_id', userId)
+        .gte('started_at', start.toISOString())
+        .lt('started_at', end.toISOString()),
+      client
+        .from('study_tasks')
+        .select('completed_at')
+        .eq('user_id', userId)
+        .not('completed_at', 'is', null)
+        .gte('completed_at', start.toISOString())
+        .lt('completed_at', end.toISOString()),
+    ]);
+
+    if (sessions.error) {
+      throw sessions.error;
+    }
+
+    if (tasks.error) {
+      throw tasks.error;
     }
 
     const days = new Set<string>();
 
-    for (const item of data ?? []) {
-      const date = new Date(item.started_at);
+    for (const item of sessions.data ?? []) {
+      days.add(dayKey(new Date(item.started_at)));
+    }
 
-      days.add(
-        `${date.getFullYear()}-${String(
-          date.getMonth() + 1,
-        ).padStart(2, '0')}-${String(
-          date.getDate(),
-        ).padStart(2, '0')}`,
-      );
+    for (const item of tasks.data ?? []) {
+      if (item.completed_at) {
+        days.add(dayKey(new Date(item.completed_at)));
+      }
     }
 
     return Array.from(days);
+  },
+
+  async focusDays(userId: string, start: Date, end: Date) {
+    return this.activityDays(userId, start, end);
   },
 
   async goals(userId: string) {
@@ -278,21 +378,14 @@ export const studyData = {
       .from('study_goals')
       .select(goalSelect)
       .eq('user_id', userId)
-      .order('due_at', {
-        ascending: true,
-        nullsFirst: false,
-      })
-      .order('created_at', {
-        ascending: false,
-      });
+      .order('due_at', { ascending: true, nullsFirst: false })
+      .order('created_at', { ascending: false });
 
     if (error) {
       throw error;
     }
 
-    return (data ?? []).map((goal) =>
-      mapGoal(goal as DbGoal),
-    );
+    return (data ?? []).map((goal) => mapGoal(goal as DbGoal));
   },
 
   async addGoal(
@@ -330,10 +423,7 @@ export const studyData = {
     return mapGoal(data as DbGoal);
   },
 
-  async updateGoalProgress(
-    goalId: string,
-    currentValue: number,
-  ) {
+  async updateGoalProgress(goalId: string, currentValue: number) {
     if (!isSupabaseConfigured) {
       throw Error('Supabase is not configured.');
     }
@@ -364,10 +454,38 @@ export const studyData = {
       throw Error('Supabase is not configured.');
     }
 
-    const { error } = await getSupabase()
-      .from('study_goals')
-      .delete()
-      .eq('id', goalId);
+    const { error } = await getSupabase().from('study_goals').delete().eq('id', goalId);
+
+    if (error) {
+      throw error;
+    }
+  },
+
+  async aiHistory(userId: string, limit = 40) {
+    if (!isSupabaseConfigured) {
+      return [] as AiGeneration[];
+    }
+
+    const { data, error } = await getSupabase()
+      .from('ai_generations')
+      .select('id,kind,prompt,result_text,created_at,tokens_used')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      throw error;
+    }
+
+    return (data ?? []).map((row) => mapGeneration(row as DbGeneration));
+  },
+
+  async deleteAiGeneration(id: string) {
+    if (!isSupabaseConfigured) {
+      throw Error('Supabase is not configured.');
+    }
+
+    const { error } = await getSupabase().from('ai_generations').delete().eq('id', id);
 
     if (error) {
       throw error;

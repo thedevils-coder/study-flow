@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
 import {
+  Alert,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -7,204 +9,142 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
-import { Card } from '@/components/ui';
+import { router } from 'expo-router';
+import { Card, EmptyState } from '@/components/ui';
 import { colors } from '@/constants/theme';
 import { useApp } from '@/store/app-store';
 import { t } from '@/i18n';
+import {
+  addDays,
+  endOfDay,
+  endOfMonth,
+  endOfWeek,
+  isOverdue,
+  startOfDay,
+  startOfMonth,
+  startOfWeek,
+} from '@/lib/dates';
 
 type PlannerView = 'day' | 'week' | 'month';
-
-const startOfDay = (date: Date) => {
-  const result = new Date(date);
-  result.setHours(0, 0, 0, 0);
-  return result;
-};
-
-const endOfDay = (date: Date) => {
-  const result = startOfDay(date);
-  result.setDate(result.getDate() + 1);
-  return result;
-};
-
-const startOfWeek = (date: Date) => {
-  const result = startOfDay(date);
-  const day = result.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  result.setDate(result.getDate() + diff);
-  return result;
-};
-
-const endOfWeek = (date: Date) => {
-  const result = startOfWeek(date);
-  result.setDate(result.getDate() + 7);
-  return result;
-};
-
-const startOfMonth = (date: Date) => {
-  const result = new Date(date);
-  result.setDate(1);
-  result.setHours(0, 0, 0, 0);
-  return result;
-};
-
-const endOfMonth = (date: Date) => {
-  const result = startOfMonth(date);
-  result.setMonth(result.getMonth() + 1);
-  return result;
-};
-
-const formatDate = (date: Date) =>
-  new Intl.DateTimeFormat(undefined, {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-  }).format(date);
-
-const formatMonth = (date: Date) =>
-  new Intl.DateTimeFormat(undefined, {
-    month: 'long',
-    year: 'numeric',
-  }).format(date);
 
 export default function Planner() {
   const { session, tasks, toggleTask, deleteTask } = useApp();
   const [view, setView] = useState<PlannerView>('day');
-
+  const [cursor, setCursor] = useState(() => startOfDay(new Date()));
   const tr = (key: string) => t(session!.language, key);
-
-  const today = useMemo(() => new Date(), []);
 
   const range = useMemo(() => {
     if (view === 'day') {
-      return {
-        start: startOfDay(today),
-        end: endOfDay(today),
-      };
+      return { start: startOfDay(cursor), end: endOfDay(cursor) };
     }
-
     if (view === 'week') {
-      return {
-        start: startOfWeek(today),
-        end: endOfWeek(today),
-      };
+      return { start: startOfWeek(cursor), end: endOfWeek(cursor) };
     }
+    return { start: startOfMonth(cursor), end: endOfMonth(cursor) };
+  }, [cursor, view]);
 
-    return {
-      start: startOfMonth(today),
-      end: endOfMonth(today),
-    };
-  }, [today, view]);
-
-  const visibleTasks = useMemo(() => {
-    return tasks.filter((task) => {
-      if (!task.scheduledAt) {
-        return view === 'day';
-      }
-
-      const scheduled = new Date(task.scheduledAt);
-
-      if (Number.isNaN(scheduled.getTime())) {
-        return view === 'day';
-      }
-
-      return (
-        scheduled >= range.start &&
-        scheduled < range.end
-      );
-    });
-  }, [range.end, range.start, tasks, view]);
+  const visibleTasks = useMemo(
+    () =>
+      tasks.filter((task) => {
+        if (!task.scheduledAt) {
+          return view === 'day' && startOfDay(cursor).getTime() === startOfDay(new Date()).getTime();
+        }
+        const scheduled = new Date(task.scheduledAt);
+        if (Number.isNaN(scheduled.getTime())) {
+          return false;
+        }
+        return scheduled >= range.start && scheduled < range.end;
+      }),
+    [range, tasks, view, cursor],
+  );
 
   const title =
     view === 'day'
-      ? formatDate(today)
+      ? new Intl.DateTimeFormat(undefined, { weekday: 'long', month: 'long', day: 'numeric' }).format(cursor)
       : view === 'week'
-        ? 'This week'
-        : formatMonth(today);
+        ? tr('thisWeek')
+        : new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' }).format(cursor);
 
-  const viewLabels: Record<PlannerView, string> = {
-    day: 'Day',
-    week: 'Week',
-    month: 'Month',
+  const shift = (direction: number) => {
+    if (view === 'day') {
+      setCursor(addDays(cursor, direction));
+    } else if (view === 'week') {
+      setCursor(addDays(cursor, direction * 7));
+    } else {
+      const next = new Date(cursor);
+      next.setMonth(next.getMonth() + direction);
+      setCursor(next);
+    }
+  };
+
+  const confirmDelete = (id: string) => {
+    Alert.alert(tr('deleteTask'), tr('confirmDelete'), [
+      { text: tr('cancel'), style: 'cancel' },
+      {
+        text: tr('deleteTask'),
+        style: 'destructive',
+        onPress: () => {
+          deleteTask(id).catch(() => Alert.alert(tr('deleteTask'), tr('unableToDeleteTask')));
+        },
+      },
+    ]);
   };
 
   return (
     <SafeAreaView style={styles.safe}>
-      <ScrollView
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
-        <Text style={styles.title}>{tr('planner')}</Text>
-        <Text style={styles.subtitle}>{title}</Text>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.headerRow}>
+          <Text style={styles.title}>{tr('planner')}</Text>
+          <Text onPress={() => router.push('/task/new')} style={styles.add}>
+            {tr('addTask')}
+          </Text>
+        </View>
+        <View style={styles.nav}>
+          <Pressable onPress={() => shift(-1)} accessibilityLabel={tr('previous')}>
+            <Text style={styles.navBtn}>‹</Text>
+          </Pressable>
+          <Pressable onPress={() => setCursor(startOfDay(new Date()))}>
+            <Text style={styles.subtitle}>{title}</Text>
+          </Pressable>
+          <Pressable onPress={() => shift(1)} accessibilityLabel={tr('next')}>
+            <Text style={styles.navBtn}>›</Text>
+          </Pressable>
+        </View>
 
         <View style={styles.tabs}>
-          {(['day', 'week', 'month'] as PlannerView[]).map(
-            (item) => (
-              <TouchableOpacity
-                key={item}
-                style={[
-                  styles.tab,
-                  view === item && styles.activeTab,
-                ]}
-                onPress={() => setView(item)}
-              >
-                <Text
-                  style={[
-                    styles.tabText,
-                    view === item && styles.activeTabText,
-                  ]}
-                >
-                  {viewLabels[item]}
-                </Text>
-              </TouchableOpacity>
-            ),
-          )}
+          {(['day', 'week', 'month'] as PlannerView[]).map((item) => (
+            <TouchableOpacity
+              key={item}
+              style={[styles.tab, view === item && styles.activeTab]}
+              onPress={() => setView(item)}
+            >
+              <Text style={[styles.tabText, view === item && styles.activeTabText]}>{tr(item)}</Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
         {visibleTasks.length === 0 ? (
-          <Card>
-            <Text style={styles.emptyTitle}>
-              No tasks scheduled
-            </Text>
-            <Text style={styles.emptyText}>
-              Add a task from the home screen to see it here.
-            </Text>
-          </Card>
+          <EmptyState title={tr('noTasksScheduled')} body={tr('addTaskHint')} />
         ) : (
           visibleTasks.map((task) => (
             <Card key={task.id}>
               <View style={styles.taskRow}>
                 <TouchableOpacity
-                  style={[
-                    styles.checkbox,
-                    task.done && styles.checkboxDone,
-                  ]}
+                  style={[styles.checkbox, task.done && styles.checkboxDone]}
                   onPress={() => toggleTask(task.id)}
+                  accessibilityLabel={task.done ? tr('markIncomplete') : tr('markComplete')}
                 >
-                  {task.done ? (
-                    <Text style={styles.checkmark}>✓</Text>
-                  ) : null}
+                  {task.done ? <Text style={styles.checkmark}>✓</Text> : null}
                 </TouchableOpacity>
-
-                <View style={styles.taskInfo}>
-                  <Text
-                    style={[
-                      styles.taskTitle,
-                      task.done && styles.taskDone,
-                    ]}
-                  >
-                    {task.title}
-                  </Text>
-
+                <Pressable style={styles.taskInfo} onPress={() => router.push(`/task/${task.id}`)}>
+                  <Text style={[styles.taskTitle, task.done && styles.taskDone]}>{task.title}</Text>
                   <Text style={styles.taskTime}>
                     {task.time}
+                    {isOverdue(task.scheduledAt, task.done) ? ` · ${tr('overdue')}` : ''}
                   </Text>
-                </View>
-
-                <TouchableOpacity
-                  onPress={() => deleteTask(task.id)}
-                >
-                  <Text style={styles.deleteText}>Delete</Text>
+                </Pressable>
+                <TouchableOpacity onPress={() => confirmDelete(task.id)}>
+                  <Text style={styles.deleteText}>{tr('deleteTask')}</Text>
                 </TouchableOpacity>
               </View>
             </Card>
@@ -216,25 +156,20 @@ export default function Planner() {
 }
 
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: colors.soft,
+  safe: { flex: 1, backgroundColor: colors.soft },
+  content: { padding: 20, paddingBottom: 40 },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  title: { fontSize: 30, fontWeight: '800', color: colors.ink },
+  add: { color: colors.purple, fontWeight: '800' },
+  nav: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 8,
+    marginBottom: 16,
   },
-  content: {
-    padding: 20,
-    paddingBottom: 40,
-  },
-  title: {
-    fontSize: 30,
-    fontWeight: '800',
-    color: colors.ink,
-  },
-  subtitle: {
-    marginTop: 4,
-    marginBottom: 20,
-    fontSize: 15,
-    color: colors.muted,
-  },
+  navBtn: { fontSize: 32, color: colors.purple, paddingHorizontal: 8 },
+  subtitle: { fontSize: 15, color: colors.muted, fontWeight: '700' },
   tabs: {
     flexDirection: 'row',
     marginBottom: 16,
@@ -242,28 +177,11 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     backgroundColor: colors.white,
   },
-  tab: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderRadius: 10,
-  },
-  activeTab: {
-    backgroundColor: colors.purple,
-  },
-  tabText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.muted,
-  },
-  activeTabText: {
-    color: '#FFFFFF',
-  },
-  taskRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
+  tab: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 10 },
+  activeTab: { backgroundColor: colors.purple },
+  tabText: { fontSize: 14, fontWeight: '700', color: colors.muted },
+  activeTabText: { color: '#FFFFFF' },
+  taskRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   checkbox: {
     width: 24,
     height: 24,
@@ -273,46 +191,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  checkboxDone: {
-    backgroundColor: colors.purple,
-    borderColor: colors.purple,
-  },
-  checkmark: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  taskInfo: {
-    flex: 1,
-  },
-  taskTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.ink,
-  },
-  taskDone: {
-    textDecorationLine: 'line-through',
-    color: colors.muted,
-  },
-  taskTime: {
-    marginTop: 3,
-    fontSize: 13,
-    color: colors.muted,
-  },
-  deleteText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#C2410C',
-  },
-  emptyTitle: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: colors.ink,
-  },
-  emptyText: {
-    marginTop: 6,
-    fontSize: 14,
-    color: colors.muted,
-    lineHeight: 20,
-  },
+  checkboxDone: { backgroundColor: colors.purple, borderColor: colors.purple },
+  checkmark: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
+  taskInfo: { flex: 1 },
+  taskTitle: { fontSize: 16, fontWeight: '700', color: colors.ink },
+  taskDone: { textDecorationLine: 'line-through', color: colors.muted },
+  taskTime: { marginTop: 3, fontSize: 13, color: colors.muted },
+  deleteText: { fontSize: 13, fontWeight: '700', color: '#C2410C' },
 });
