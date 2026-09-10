@@ -11,12 +11,11 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Button } from '@/components/ui';
-import { colors } from '@/constants/theme';
+import { Button, ThemedSafeArea } from '@/components/ui';
 import { useApp } from '@/store/app-store';
-import { t } from '@/i18n';
+import { formatDate, formatTime, t } from '@/i18n';
+import { useColors } from '@/lib/use-colors';
 import { TaskCategory } from '@/types';
 import { combineDateAndTime } from '@/lib/dates';
 
@@ -25,6 +24,7 @@ export default function TaskEditor() {
   const { session, tasks, addTask, updateTask, deleteTask } = useApp();
   const existing = tasks.find((task) => task.id === id);
   const tr = (key: string) => t(session?.language || 'en', key);
+  const palette = useColors();
 
   const initial = existing?.scheduledAt ? new Date(existing.scheduledAt) : new Date();
   const [title, setTitle] = useState(existing?.title ?? '');
@@ -81,36 +81,36 @@ export default function TaskEditor() {
   };
 
   return (
-    <SafeAreaView style={s.page}>
+    <ThemedSafeArea>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled">
           <Pressable onPress={() => router.back()} accessibilityRole="button">
-            <Text style={s.back}>{tr('back')}</Text>
+            <Text style={[s.back, { color: palette.purple }]}>{tr('back')}</Text>
           </Pressable>
-          <Text style={s.title}>{existing ? tr('editTask') : tr('addTask')}</Text>
+          <Text style={[s.title, { color: palette.ink }]}>{existing ? tr('editTask') : tr('addTask')}</Text>
 
-          <Text style={s.label}>{tr('taskTitle')}</Text>
+          <Text style={[s.label, { color: palette.ink }]}>{tr('taskTitle')}</Text>
           <TextInput
             value={title}
             onChangeText={setTitle}
             placeholder={tr('taskTitle')}
-            placeholderTextColor={colors.muted}
-            style={s.input}
+            placeholderTextColor={palette.muted}
+            style={[s.input, { backgroundColor: palette.soft, color: palette.ink }]}
             maxLength={160}
           />
 
-          <Text style={s.label}>{tr('date')}</Text>
-          <Pressable style={s.input} onPress={() => setPicker('date')}>
-            <Text style={s.value}>{date.toLocaleDateString()}</Text>
+          <Text style={[s.label, { color: palette.ink }]}>{tr('date')}</Text>
+          <Pressable style={[s.input, { backgroundColor: palette.soft }]} onPress={() => setPicker('date')}>
+            <Text style={[s.value, { color: palette.ink }]}>{formatDate(session?.language || 'en', date)}</Text>
           </Pressable>
 
-          <Text style={s.label}>{tr('time')}</Text>
-          <Pressable style={s.input} onPress={() => setPicker('time')}>
-            <Text style={s.value}>
-              {date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
+          <Text style={[s.label, { color: palette.ink }]}>{tr('time')}</Text>
+          <Pressable style={[s.input, { backgroundColor: palette.soft }]} onPress={() => setPicker('time')}>
+            <Text style={[s.value, { color: palette.ink }]}>
+              {formatTime(session?.language || 'en', date)}
             </Text>
           </Pressable>
 
@@ -129,15 +129,15 @@ export default function TaskEditor() {
             />
           )}
 
-          <Text style={s.label}>{tr('category')}</Text>
+          <Text style={[s.label, { color: palette.ink }]}>{tr('category')}</Text>
           <View style={s.row}>
             {categories.map((item) => (
               <Pressable
                 key={item}
                 onPress={() => setCategory(item)}
-                style={[s.chip, category === item && s.chipOn]}
+                style={[s.chip, { backgroundColor: palette.soft }, category === item && { backgroundColor: palette.purple }]}
               >
-                <Text style={[s.chipText, category === item && s.chipTextOn]}>{tr(item)}</Text>
+                <Text style={[s.chipText, { color: palette.muted }, category === item && s.chipTextOn]}>{tr(item)}</Text>
               </Pressable>
             ))}
           </View>
@@ -148,32 +148,27 @@ export default function TaskEditor() {
           ) : null}
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </ThemedSafeArea>
   );
 }
 
 const s = StyleSheet.create({
-  page: { flex: 1, backgroundColor: colors.white },
   scroll: { padding: 20, paddingBottom: 40, gap: 10 },
-  back: { color: colors.purple, fontWeight: '800', fontSize: 16 },
-  title: { fontSize: 28, fontWeight: '900', color: colors.ink, marginBottom: 8 },
-  label: { fontWeight: '800', color: colors.ink, marginTop: 8 },
+  back: { fontWeight: '800', fontSize: 16 },
+  title: { fontSize: 28, fontWeight: '900', marginBottom: 8 },
+  label: { fontWeight: '800', marginTop: 8 },
   input: {
-    backgroundColor: colors.soft,
     borderRadius: 14,
     padding: 16,
     fontSize: 16,
-    color: colors.ink,
   },
-  value: { fontSize: 16, color: colors.ink },
+  value: { fontSize: 16 },
   row: { flexDirection: 'row', gap: 8, marginBottom: 12 },
   chip: {
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 12,
-    backgroundColor: colors.soft,
   },
-  chipOn: { backgroundColor: colors.purple },
-  chipText: { fontWeight: '800', color: colors.muted },
+  chipText: { fontWeight: '800' },
   chipTextOn: { color: 'white' },
 });

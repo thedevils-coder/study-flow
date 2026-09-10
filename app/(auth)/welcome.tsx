@@ -13,10 +13,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui';
-import { BRAND, colors } from '@/constants/theme';
+import { colors } from '@/constants/theme';
 import { useApp } from '@/store/app-store';
 import { t, deviceLanguage } from '@/i18n';
 import { PHONE_AUTH_ENABLED } from '@/services/auth';
+import { useColors } from '@/lib/use-colors';
 
 type Mode = 'email' | 'phone';
 type EmailMode = 'magic' | 'password' | 'signup' | 'reset';
@@ -43,6 +44,7 @@ export default function Welcome() {
 
   const language = deviceLanguage();
   const tr = (key: string) => t(language, key);
+  const palette = useColors();
 
   const run = async (action: () => Promise<void>, success?: { title: string; body: string }) => {
     setBusy(true);
@@ -52,7 +54,13 @@ export default function Welcome() {
         Alert.alert(success.title, success.body);
       }
     } catch (error) {
-      Alert.alert(tr('authError'), error instanceof Error ? error.message : tr('errorGeneric'));
+      const message = error instanceof Error ? error.message : tr('errorGeneric');
+      const mapped = message.includes('not configured')
+        ? tr('supabaseNotConfigured')
+        : message.includes('not enabled')
+          ? tr('phoneAuthDisabled')
+          : message;
+      Alert.alert(tr('authError'), mapped);
     } finally {
       setBusy(false);
     }
@@ -119,7 +127,7 @@ export default function Welcome() {
   };
 
   return (
-    <SafeAreaView style={s.page}>
+    <SafeAreaView style={[s.page, { backgroundColor: palette.background }]}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -130,22 +138,22 @@ export default function Welcome() {
             style={s.logo}
             accessibilityLabel={tr('brandName')}
           />
-          <Text style={s.brand}>{tr('brandName').toUpperCase()}</Text>
-          <Text style={s.tagline}>{BRAND.tagline}</Text>
-          <Text style={s.title}>{tr('welcomeTitle')}</Text>
-          <Text style={s.sub}>{tr('welcomeSubtitle')}</Text>
+          <Text style={[s.brand, { color: palette.ink }]}>{tr('brandName').toUpperCase()}</Text>
+          <Text style={[s.tagline, { color: palette.purple }]}>{tr('tagline')}</Text>
+          <Text style={[s.title, { color: palette.ink }]}>{tr('welcomeTitle')}</Text>
+          <Text style={[s.sub, { color: palette.muted }]}>{tr('welcomeSubtitle')}</Text>
 
           {PHONE_AUTH_ENABLED ? (
-            <View style={s.tabs}>
+            <View style={[s.tabs, { backgroundColor: palette.soft }]}>
               {(['email', 'phone'] as Mode[]).map((item) => (
                 <Pressable
                   key={item}
                   onPress={() => setMode(item)}
-                  style={[s.tab, mode === item && s.tabActive]}
+                  style={[s.tab, mode === item && [s.tabActive, { backgroundColor: palette.card }]]}
                   accessibilityRole="button"
                   accessibilityLabel={item === 'email' ? tr('continueWithEmail') : tr('continueWithPhone')}
                 >
-                  <Text style={[s.tabText, mode === item && s.tabTextActive]}>
+                  <Text style={[s.tabText, { color: palette.muted }, mode === item && { color: palette.purple }]}>
                     {item === 'email' ? tr('email') : tr('phone')}
                   </Text>
                 </Pressable>
@@ -160,8 +168,8 @@ export default function Welcome() {
                   value={name}
                   onChangeText={setName}
                   placeholder={tr('name')}
-                  placeholderTextColor={colors.muted}
-                  style={s.input}
+                  placeholderTextColor={palette.muted}
+                  style={[s.input, { backgroundColor: palette.soft, color: palette.ink }]}
                   autoCapitalize="words"
                 />
               ) : null}
@@ -172,16 +180,16 @@ export default function Welcome() {
                 autoCapitalize="none"
                 autoComplete="email"
                 placeholder={tr('email')}
-                placeholderTextColor={colors.muted}
-                style={s.input}
+                placeholderTextColor={palette.muted}
+                style={[s.input, { backgroundColor: palette.soft, color: palette.ink }]}
               />
               {emailMode === 'password' || emailMode === 'signup' ? (
                 <TextInput
                   value={password}
                   onChangeText={setPassword}
                   placeholder={tr('password')}
-                  placeholderTextColor={colors.muted}
-                  style={s.input}
+                  placeholderTextColor={palette.muted}
+                  style={[s.input, { backgroundColor: palette.soft, color: palette.ink }]}
                   secureTextEntry
                 />
               ) : null}
@@ -197,17 +205,17 @@ export default function Welcome() {
                 loading={busy}
               />
               <Pressable onPress={() => setEmailMode(emailMode === 'magic' ? 'password' : 'magic')}>
-                <Text style={s.link}>
+                <Text style={[s.link, { color: palette.purple }]}>
                   {emailMode === 'magic' ? tr('usePassword') : tr('useMagicLink')}
                 </Text>
               </Pressable>
               <Pressable onPress={() => setEmailMode(emailMode === 'signup' ? 'password' : 'signup')}>
-                <Text style={s.link}>
+                <Text style={[s.link, { color: palette.purple }]}>
                   {emailMode === 'signup' ? tr('alreadyHaveAccount') : tr('noAccount')}
                 </Text>
               </Pressable>
               <Pressable onPress={() => setEmailMode('reset')}>
-                <Text style={s.link}>{tr('forgotPassword')}</Text>
+                <Text style={[s.link, { color: palette.purple }]}>{tr('forgotPassword')}</Text>
               </Pressable>
             </View>
           ) : (
@@ -217,8 +225,8 @@ export default function Welcome() {
                 onChangeText={setPhone}
                 keyboardType="phone-pad"
                 placeholder={tr('phonePlaceholder')}
-                placeholderTextColor={colors.muted}
-                style={s.input}
+                placeholderTextColor={palette.muted}
+                style={[s.input, { backgroundColor: palette.soft, color: palette.ink }]}
               />
               {codeSent ? (
                 <TextInput
@@ -226,8 +234,8 @@ export default function Welcome() {
                   onChangeText={setCode}
                   keyboardType="number-pad"
                   placeholder={tr('enterCode')}
-                  placeholderTextColor={colors.muted}
-                  style={s.input}
+                  placeholderTextColor={palette.muted}
+                  style={[s.input, { backgroundColor: palette.soft, color: palette.ink }]}
                 />
               ) : null}
               <Button
@@ -247,7 +255,7 @@ export default function Welcome() {
               }
               loading={busy}
             />
-            <Text style={s.note}>{tr('paymentVerification')}</Text>
+            <Text style={[s.note, { color: palette.muted }]}>{tr('paymentVerification')}</Text>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

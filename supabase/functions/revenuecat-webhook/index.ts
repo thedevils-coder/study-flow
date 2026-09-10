@@ -7,7 +7,7 @@ Deno.serve(async (request) => {
 
   const { event } = await request.json();
 
-  if (!event?.app_user_id) {
+  if (!event?.app_user_id || !/^[0-9a-f-]{36}$/i.test(String(event.app_user_id))) {
     return new Response('Invalid event', { status: 400 });
   }
 

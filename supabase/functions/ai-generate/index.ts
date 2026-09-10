@@ -1,9 +1,15 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
+const cors = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, content-type, apikey, x-client-info',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+};
+
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...cors },
   });
 
 const kinds = ['notes', 'summary', 'flashcards', 'quiz', 'explain', 'leo', 'schedule', 'other'] as const;
@@ -14,7 +20,7 @@ const PRO_KINDS = new Set<Kind>(['flashcards', 'quiz', 'leo', 'schedule']);
 
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') {
-    return new Response('ok', { headers: { 'Access-Control-Allow-Origin': '*' } });
+    return new Response('ok', { headers: cors });
   }
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
@@ -83,7 +89,7 @@ Deno.serve(async (request) => {
     return json({ error: 'Start a free trial or choose Basic to use AI Meter.' }, 402);
   }
 
-  if (PRO_KINDS.has(kind) && tier !== 'pro' && !trialActive && String(subscription?.state) !== 'trial') {
+  if (PRO_KINDS.has(kind) && tier !== 'pro' && !trialActive) {
     return json({ error: 'This tool is included with Study Flow Pro.' }, 402);
   }
 

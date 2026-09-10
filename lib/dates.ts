@@ -61,6 +61,20 @@ export const formatDuration = (seconds: number) => {
   return `${remainingMinutes}m`;
 };
 
+export const sortByScheduledAt = <T extends { scheduledAt?: string | null }>(tasks: T[]) =>
+  [...tasks].sort((left, right) => {
+    if (!left.scheduledAt && !right.scheduledAt) {
+      return 0;
+    }
+    if (!left.scheduledAt) {
+      return 1;
+    }
+    if (!right.scheduledAt) {
+      return -1;
+    }
+    return new Date(left.scheduledAt).getTime() - new Date(right.scheduledAt).getTime();
+  });
+
 export const combineDateAndTime = (date: Date, hours: number, minutes: number) => {
   const result = new Date(date);
   result.setHours(hours, minutes, 0, 0);

@@ -8,18 +8,18 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { Card, EmptyState } from '@/components/ui';
-import { colors } from '@/constants/theme';
+import { Card, EmptyState, ThemedSafeArea } from '@/components/ui';
 import { useApp } from '@/store/app-store';
-import { t } from '@/i18n';
+import { formatDate, formatDateTime, t } from '@/i18n';
+import { useColors } from '@/lib/use-colors';
 import {
   addDays,
   endOfDay,
   endOfMonth,
   endOfWeek,
   isOverdue,
+  sortByScheduledAt,
   startOfDay,
   startOfMonth,
   startOfWeek,
@@ -31,7 +31,9 @@ export default function Planner() {
   const { session, tasks, toggleTask, deleteTask } = useApp();
   const [view, setView] = useState<PlannerView>('day');
   const [cursor, setCursor] = useState(() => startOfDay(new Date()));
-  const tr = (key: string) => t(session!.language, key);
+  const language = session!.language;
+  const tr = (key: string) => t(language, key);
+  const palette = useColors();
 
   const range = useMemo(() => {
     if (view === 'day') {
@@ -45,25 +47,27 @@ export default function Planner() {
 
   const visibleTasks = useMemo(
     () =>
-      tasks.filter((task) => {
-        if (!task.scheduledAt) {
-          return view === 'day' && startOfDay(cursor).getTime() === startOfDay(new Date()).getTime();
-        }
-        const scheduled = new Date(task.scheduledAt);
-        if (Number.isNaN(scheduled.getTime())) {
-          return false;
-        }
-        return scheduled >= range.start && scheduled < range.end;
-      }),
+      sortByScheduledAt(
+        tasks.filter((task) => {
+          if (!task.scheduledAt) {
+            return view === 'day' && startOfDay(cursor).getTime() === startOfDay(new Date()).getTime();
+          }
+          const scheduled = new Date(task.scheduledAt);
+          if (Number.isNaN(scheduled.getTime())) {
+            return false;
+          }
+          return scheduled >= range.start && scheduled < range.end;
+        }),
+      ),
     [range, tasks, view, cursor],
   );
 
   const title =
     view === 'day'
-      ? new Intl.DateTimeFormat(undefined, { weekday: 'long', month: 'long', day: 'numeric' }).format(cursor)
+      ? formatDate(language, cursor)
       : view === 'week'
         ? tr('thisWeek')
-        : new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' }).format(cursor);
+        : new Intl.DateTimeFormat(language, { month: 'long', year: 'numeric' }).format(cursor);
 
   const shift = (direction: number) => {
     if (view === 'day') {
@@ -91,34 +95,36 @@ export default function Planner() {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <ThemedSafeArea>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.headerRow}>
-          <Text style={styles.title}>{tr('planner')}</Text>
-          <Text onPress={() => router.push('/task/new')} style={styles.add}>
+          <Text style={[styles.title, { color: palette.ink }]}>{tr('planner')}</Text>
+          <Text onPress={() => router.push('/task/new')} style={[styles.add, { color: palette.purple }]}>
             {tr('addTask')}
           </Text>
         </View>
         <View style={styles.nav}>
           <Pressable onPress={() => shift(-1)} accessibilityLabel={tr('previous')}>
-            <Text style={styles.navBtn}>‹</Text>
+            <Text style={[styles.navBtn, { color: palette.purple }]}>‹</Text>
           </Pressable>
           <Pressable onPress={() => setCursor(startOfDay(new Date()))}>
-            <Text style={styles.subtitle}>{title}</Text>
+            <Text style={[styles.subtitle, { color: palette.muted }]}>{title}</Text>
           </Pressable>
           <Pressable onPress={() => shift(1)} accessibilityLabel={tr('next')}>
-            <Text style={styles.navBtn}>›</Text>
+            <Text style={[styles.navBtn, { color: palette.purple }]}>›</Text>
           </Pressable>
         </View>
 
-        <View style={styles.tabs}>
+        <View style={[styles.tabs, { backgroundColor: palette.card }]}>
           {(['day', 'week', 'month'] as PlannerView[]).map((item) => (
             <TouchableOpacity
               key={item}
-              style={[styles.tab, view === item && styles.activeTab]}
+              style={[styles.tab, view === item && { backgroundColor: palette.purple }]}
               onPress={() => setView(item)}
             >
-              <Text style={[styles.tabText, view === item && styles.activeTabText]}>{tr(item)}</Text>
+              <Text style={[styles.tabText, { color: palette.muted }, view === item && styles.activeTabText]}>
+                {tr(item)}
+              </Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -130,37 +136,42 @@ export default function Planner() {
             <Card key={task.id}>
               <View style={styles.taskRow}>
                 <TouchableOpacity
-                  style={[styles.checkbox, task.done && styles.checkboxDone]}
+                  style={[
+                    styles.checkbox,
+                    { borderColor: palette.border },
+                    task.done && { backgroundColor: palette.purple, borderColor: palette.purple },
+                  ]}
                   onPress={() => toggleTask(task.id)}
                   accessibilityLabel={task.done ? tr('markIncomplete') : tr('markComplete')}
                 >
                   {task.done ? <Text style={styles.checkmark}>✓</Text> : null}
                 </TouchableOpacity>
                 <Pressable style={styles.taskInfo} onPress={() => router.push(`/task/${task.id}`)}>
-                  <Text style={[styles.taskTitle, task.done && styles.taskDone]}>{task.title}</Text>
-                  <Text style={styles.taskTime}>
-                    {task.scheduledAt ? task.time : tr('anyTime')}
+                  <Text style={[styles.taskTitle, { color: palette.ink }, task.done && styles.taskDone]}>
+                    {task.title}
+                  </Text>
+                  <Text style={[styles.taskTime, { color: palette.muted }]}>
+                    {task.scheduledAt ? formatDateTime(language, task.scheduledAt) : tr('anyTime')}
                     {isOverdue(task.scheduledAt, task.done) ? ` · ${tr('overdue')}` : ''}
                   </Text>
                 </Pressable>
                 <TouchableOpacity onPress={() => confirmDelete(task.id)}>
-                  <Text style={styles.deleteText}>{tr('deleteTask')}</Text>
+                  <Text style={[styles.deleteText, { color: palette.danger }]}>{tr('deleteTask')}</Text>
                 </TouchableOpacity>
               </View>
             </Card>
           ))
         )}
       </ScrollView>
-    </SafeAreaView>
+    </ThemedSafeArea>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.soft },
   content: { padding: 20, paddingBottom: 40 },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  title: { fontSize: 30, fontWeight: '800', color: colors.ink },
-  add: { color: colors.purple, fontWeight: '800' },
+  title: { fontSize: 30, fontWeight: '800' },
+  add: { fontWeight: '800' },
   nav: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -168,18 +179,16 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 16,
   },
-  navBtn: { fontSize: 32, color: colors.purple, paddingHorizontal: 8 },
-  subtitle: { fontSize: 15, color: colors.muted, fontWeight: '700' },
+  navBtn: { fontSize: 32, paddingHorizontal: 8 },
+  subtitle: { fontSize: 15, fontWeight: '700' },
   tabs: {
     flexDirection: 'row',
     marginBottom: 16,
     padding: 4,
     borderRadius: 14,
-    backgroundColor: colors.white,
   },
   tab: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 10 },
-  activeTab: { backgroundColor: colors.purple },
-  tabText: { fontSize: 14, fontWeight: '700', color: colors.muted },
+  tabText: { fontSize: 14, fontWeight: '700' },
   activeTabText: { color: '#FFFFFF' },
   taskRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   checkbox: {
@@ -187,15 +196,15 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: colors.border,
+    borderColor: '#EAE7F3',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  checkboxDone: { backgroundColor: colors.purple, borderColor: colors.purple },
+  checkboxDone: { backgroundColor: '#5932E8', borderColor: '#5932E8' },
   checkmark: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
   taskInfo: { flex: 1 },
-  taskTitle: { fontSize: 16, fontWeight: '700', color: colors.ink },
-  taskDone: { textDecorationLine: 'line-through', color: colors.muted },
-  taskTime: { marginTop: 3, fontSize: 13, color: colors.muted },
+  taskTitle: { fontSize: 16, fontWeight: '700' },
+  taskDone: { textDecorationLine: 'line-through' },
+  taskTime: { marginTop: 3, fontSize: 13 },
   deleteText: { fontSize: 13, fontWeight: '700', color: '#C2410C' },
 });

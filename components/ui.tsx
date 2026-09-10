@@ -7,9 +7,12 @@ import {
   View,
   ViewStyle,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, radius } from '@/constants/theme';
 import { useColors } from '@/lib/use-colors';
+import { t } from '@/i18n';
+import { useApp } from '@/store/app-store';
 
 export function Card({
   children,
@@ -54,6 +57,7 @@ export function Button({
       disabled={disabled || loading}
       style={[
         s.button,
+        { backgroundColor: palette.purple },
         variant === 'light' && { backgroundColor: palette.lilac },
         variant === 'danger' && s.danger,
         (disabled || loading) && s.disabled,
@@ -132,12 +136,15 @@ export function ErrorState({
   retryLabel?: string;
 }) {
   const palette = useColors();
+  const { session } = useApp();
   return (
     <Card>
       <Text style={[s.emptyTitle, { color: palette.ink }]}>{title}</Text>
       {onRetry ? (
         <Pressable onPress={onRetry} accessibilityRole="button">
-          <Text style={[s.retry, { color: palette.purple }]}>{retryLabel ?? 'Retry'}</Text>
+          <Text style={[s.retry, { color: palette.purple }]}>
+            {retryLabel ?? t(session?.language || 'en', 'retry')}
+          </Text>
         </Pressable>
       ) : null}
     </Card>
@@ -150,6 +157,21 @@ export function ScreenSpinner() {
     <View style={s.spinner}>
       <ActivityIndicator color={palette.purple} />
     </View>
+  );
+}
+
+export function ThemedSafeArea({
+  children,
+  style,
+}: {
+  children: React.ReactNode;
+  style?: ViewStyle | ViewStyle[];
+}) {
+  const palette = useColors();
+  return (
+    <SafeAreaView style={[{ flex: 1, backgroundColor: palette.background }, style]}>
+      {children}
+    </SafeAreaView>
   );
 }
 

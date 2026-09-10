@@ -143,6 +143,7 @@ export const studyData = {
   },
 
   async updateTask(
+    userId: string,
     taskId: string,
     patch: {
       title?: string;
@@ -163,6 +164,7 @@ export const studyData = {
         updated_at: new Date().toISOString(),
       })
       .eq('id', taskId)
+      .eq('user_id', userId)
       .select(taskSelect)
       .single();
 
@@ -173,7 +175,7 @@ export const studyData = {
     return mapTask(data as DbTask);
   },
 
-  async toggleTask(task: Task) {
+  async toggleTask(userId: string, task: Task) {
     if (!isSupabaseConfigured) {
       throw Error('Supabase is not configured.');
     }
@@ -185,6 +187,7 @@ export const studyData = {
         updated_at: new Date().toISOString(),
       })
       .eq('id', task.id)
+      .eq('user_id', userId)
       .select(taskSelect)
       .single();
 
@@ -195,12 +198,16 @@ export const studyData = {
     return mapTask(data as DbTask);
   },
 
-  async deleteTask(taskId: string) {
+  async deleteTask(userId: string, taskId: string) {
     if (!isSupabaseConfigured) {
       throw Error('Supabase is not configured.');
     }
 
-    const { error } = await getSupabase().from('study_tasks').delete().eq('id', taskId);
+    const { error } = await getSupabase()
+      .from('study_tasks')
+      .delete()
+      .eq('id', taskId)
+      .eq('user_id', userId);
 
     if (error) {
       throw error;
@@ -424,6 +431,7 @@ export const studyData = {
   },
 
   async updateGoal(
+    userId: string,
     goalId: string,
     patch: {
       title?: string;
@@ -450,6 +458,7 @@ export const studyData = {
         updated_at: new Date().toISOString(),
       })
       .eq('id', goalId)
+      .eq('user_id', userId)
       .select(goalSelect)
       .single();
 
@@ -460,7 +469,7 @@ export const studyData = {
     return mapGoal(data as DbGoal);
   },
 
-  async updateGoalProgress(goalId: string, currentValue: number) {
+  async updateGoalProgress(userId: string, goalId: string, currentValue: number) {
     if (!isSupabaseConfigured) {
       throw Error('Supabase is not configured.');
     }
@@ -476,6 +485,7 @@ export const studyData = {
         updated_at: new Date().toISOString(),
       })
       .eq('id', goalId)
+      .eq('user_id', userId)
       .select(goalSelect)
       .single();
 
@@ -486,12 +496,16 @@ export const studyData = {
     return mapGoal(data as DbGoal);
   },
 
-  async deleteGoal(goalId: string) {
+  async deleteGoal(userId: string, goalId: string) {
     if (!isSupabaseConfigured) {
       throw Error('Supabase is not configured.');
     }
 
-    const { error } = await getSupabase().from('study_goals').delete().eq('id', goalId);
+    const { error } = await getSupabase()
+      .from('study_goals')
+      .delete()
+      .eq('id', goalId)
+      .eq('user_id', userId);
 
     if (error) {
       throw error;
@@ -538,12 +552,16 @@ export const studyData = {
     };
   },
 
-  async deleteAiGeneration(id: string) {
+  async deleteAiGeneration(userId: string, id: string) {
     if (!isSupabaseConfigured) {
       throw Error('Supabase is not configured.');
     }
 
-    const { error } = await getSupabase().from('ai_generations').delete().eq('id', id);
+    const { error } = await getSupabase()
+      .from('ai_generations')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', userId);
 
     if (error) {
       throw error;

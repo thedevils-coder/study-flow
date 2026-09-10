@@ -7,21 +7,18 @@ import {
   Text,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Card, ErrorState } from '@/components/ui';
-import { colors } from '@/constants/theme';
+import { Card, EmptyState, ErrorState, ThemedSafeArea } from '@/components/ui';
 import { studyData } from '@/services/study-data';
 import { useApp } from '@/store/app-store';
-import { t } from '@/i18n';
+import { formatDurationLocale, t } from '@/i18n';
+import { useColors } from '@/lib/use-colors';
 import { FocusSession } from '@/types';
 import {
   addDays,
   endOfDay,
-  formatDuration,
   startOfDay,
   startOfWeek,
 } from '@/lib/dates';
-import { canUseAdvancedAnalytics, getTier } from '@/lib/entitlements';
 
 export default function Progress() {
   const { session, tasks, goals, streak } = useApp();
@@ -30,11 +27,12 @@ export default function Progress() {
   const [todaySeconds, setTodaySeconds] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const tr = (key: string) => t(session!.language, key);
+  const language = session!.language;
+  const tr = (key: string) => t(language, key);
+  const palette = useColors();
   const weekStart = useMemo(() => startOfWeek(new Date()), []);
   const weekEnd = useMemo(() => addDays(weekStart, 7), [weekStart]);
   const previousWeekStart = useMemo(() => addDays(weekStart, -7), [weekStart]);
-  const tier = getTier(session);
 
   const load = useCallback(async () => {
     if (!session) {
@@ -95,11 +93,11 @@ export default function Progress() {
           .reduce((total, item) => total + item.duration_seconds, 0);
         return {
           seconds,
-          label: new Intl.DateTimeFormat(undefined, { weekday: 'narrow' }).format(dayStart),
+          label: new Intl.DateTimeFormat(language, { weekday: 'narrow' }).format(dayStart),
           index,
         };
       }),
-    [sessions, weekStart],
+    [sessions, weekStart, language],
   );
   const maxSeconds = Math.max(...chart.map((item) => item.seconds), 1);
   const activeGoals = goals
@@ -108,21 +106,24 @@ export default function Progress() {
     .slice(0, 3);
 
   return (
-    <SafeAreaView style={s.page}>
+    <ThemedSafeArea>
       <ScrollView contentContainerStyle={s.scroll}>
-        <Text style={s.title}>{tr('progress')}</Text>
-        <Text style={s.week}>{tr('thisWeek')}</Text>
+        <Text style={[s.title, { color: palette.ink }]}>{tr('progress')}</Text>
+        <Text style={[s.week, { backgroundColor: palette.soft, color: palette.ink }]}>{tr('thisWeek')}</Text>
+        {!loading && !error && weeklySeconds === 0 && completedTasks === 0 ? (
+          <EmptyState title={tr('noProgressYet')} body={tr('addTaskHint')} />
+        ) : null}
         {error ? (
           <ErrorState title={tr('errorGeneric')} onRetry={load} retryLabel={tr('retry')} />
         ) : (
-          <Card style={s.hero}>
-            <Text style={s.muted}>{tr('studyTime')}</Text>
+          <Card style={[s.hero, { backgroundColor: palette.soft }]}>
+            <Text style={[s.muted, { color: palette.muted }]}>{tr('studyTime')}</Text>
             {loading ? (
-              <ActivityIndicator size="small" color={colors.purple} style={s.loader} />
+              <ActivityIndicator size="small" color={palette.purple} style={s.loader} />
             ) : (
               <>
-                <Text style={s.time}>{formatDuration(weeklySeconds)}</Text>
-                <Text style={s.good}>
+                <Text style={[s.time, { color: palette.ink }]}>{formatDurationLocale(language, weeklySeconds)}</Text>
+                <Text style={[s.good, { color: palette.success }]}>
                   {sessions.length === 0
                     ? tr('noFocusSessionsYet')
                     : `${weeklyChangePercent >= 0 ? tr('upFromLastWeek') : tr('downFromLastWeek')} ${Math.abs(weeklyChangePercent)}%`}
@@ -134,8 +135,8 @@ export default function Progress() {
                 const height = item.seconds === 0 ? 4 : Math.max(8, (item.seconds / maxSeconds) * 130);
                 return (
                   <View key={item.index} style={s.chartItem}>
-                    <View style={[s.bar, { height }]} />
-                    <Text style={s.day}>{item.label}</Text>
+                    <View style={[s.bar, { height, backgroundColor: palette.purple }]} />
+                    <Text style={[s.day, { color: palette.muted }]}>{item.label}</Text>
                   </View>
                 );
               })}
@@ -144,46 +145,57 @@ export default function Progress() {
         )}
         <View style={s.grid}>
           <Card style={s.small}>
-            <Text style={s.muted}>{tr('todayStudyTime')}</Text>
-            <Text style={s.metric}>{formatDuration(todaySeconds)}</Text>
+            <Text style={[s.muted, { color: palette.muted }]}>{tr('todayStudyTime')}</Text>
+            <Text style={[s.metric, { color: palette.ink }]}>{formatDurationLocale(language, todaySeconds)}</Text>
           </Card>
           <Card style={s.small}>
-            <Text style={s.muted}>{tr('tasksCompleted')}</Text>
-            <Text style={s.metric}>{completedTasks}</Text>
+            <Text style={[s.muted, { color: palette.muted }]}>{tr('lastWeek')}</Text>
+            <Text style={[s.metric, { color: palette.ink }]}>
+              {formatDurationLocale(language, previousWeeklySeconds)}
+            </Text>
           </Card>
         </View>
         <View style={s.grid}>
           <Card style={s.small}>
-            <Text style={s.muted}>{tr('currentStreak')}</Text>
-            <Text style={s.metric}>{streak.current}</Text>
+            <Text style={[s.muted, { color: palette.muted }]}>{tr('tasksCompleted')}</Text>
+            <Text style={[s.metric, { color: palette.ink }]}>{completedTasks}</Text>
           </Card>
           <Card style={s.small}>
-            <Text style={s.muted}>{tr('longestStreak')}</Text>
-            <Text style={s.metric}>{streak.longest}</Text>
+            <Text style={[s.muted, { color: palette.muted }]}>{tr('averageSession')}</Text>
+            <Text style={[s.metric, { color: palette.ink }]}>
+              {formatDurationLocale(language, averageSessionSeconds)}
+            </Text>
           </Card>
         </View>
-        {canUseAdvancedAnalytics(tier) ? (
-          <Card>
-            <Text style={s.section}>{tr('completionRate')}</Text>
-            <Text style={s.metric}>{completionRate}%</Text>
-            <Text style={s.muted}>{tr('averageSession')}: {formatDuration(averageSessionSeconds)}</Text>
+        <View style={s.grid}>
+          <Card style={s.small}>
+            <Text style={[s.muted, { color: palette.muted }]}>{tr('currentStreak')}</Text>
+            <Text style={[s.metric, { color: palette.ink }]}>{streak.current}</Text>
           </Card>
-        ) : null}
+          <Card style={s.small}>
+            <Text style={[s.muted, { color: palette.muted }]}>{tr('longestStreak')}</Text>
+            <Text style={[s.metric, { color: palette.ink }]}>{streak.longest}</Text>
+          </Card>
+        </View>
+        <Card>
+          <Text style={[s.section, { color: palette.ink }]}>{tr('completionRate')}</Text>
+          <Text style={[s.metric, { color: palette.ink }]}>{completionRate}%</Text>
+        </Card>
         {activeGoals.length > 0 && (
           <Card style={s.goalsCard}>
-            <Text style={s.section}>{tr('goals')}</Text>
+            <Text style={[s.section, { color: palette.ink }]}>{tr('goals')}</Text>
             {activeGoals.map((goal) => {
               const percent = Math.round(Math.min(goal.currentValue / goal.targetValue, 1) * 100);
               return (
                 <View key={goal.id} style={s.goalRow}>
                   <View style={s.goalHeader}>
-                    <Text style={s.goalTitle}>{goal.title}</Text>
-                    <Text style={s.goalPercent}>{percent}%</Text>
+                    <Text style={[s.goalTitle, { color: palette.ink }]}>{goal.title}</Text>
+                    <Text style={[s.goalPercent, { color: palette.purple }]}>{percent}%</Text>
                   </View>
-                  <View style={s.goalTrack}>
-                    <View style={[s.goalFill, { width: `${percent}%` }]} />
+                  <View style={[s.goalTrack, { backgroundColor: palette.soft }]}>
+                    <View style={[s.goalFill, { width: `${percent}%`, backgroundColor: palette.purple }]} />
                   </View>
-                  <Text style={s.goalMeta}>
+                  <Text style={[s.goalMeta, { color: palette.muted }]}>
                     {goal.currentValue} / {goal.targetValue} {goal.unit}
                   </Text>
                 </View>
@@ -192,55 +204,59 @@ export default function Progress() {
           </Card>
         )}
         <Card>
-          <Text style={s.section}>{tr('insights')}</Text>
-          <Text style={s.insight}>{formatDuration(weeklySeconds)} · {tr('thisWeek')}</Text>
-          <Text style={s.insight}>
+          <Text style={[s.section, { color: palette.ink }]}>{tr('insights')}</Text>
+          <Text style={[s.insight, { color: palette.ink }]}>
+            {formatDurationLocale(language, weeklySeconds)} · {tr('thisWeek')}
+          </Text>
+          <Text style={[s.insight, { color: palette.ink }]}>
+            {formatDurationLocale(language, previousWeeklySeconds)} · {tr('lastWeek')}
+          </Text>
+          <Text style={[s.insight, { color: palette.ink }]}>
             {completedTasks} {tr('tasksCompleted')}
           </Text>
-          <Text style={s.insight}>
+          <Text style={[s.insight, { color: palette.ink }]}>
             {sessions.length === 0
               ? tr('noFocusSessionsYet')
-              : `${sessions.length} · ${tr('averageSession')} ${formatDuration(averageSessionSeconds)}`}
+              : `${sessions.length} · ${tr('averageSession')} ${formatDurationLocale(language, averageSessionSeconds)}`}
           </Text>
-          <Text style={s.insight}>
+          <Text style={[s.insight, { color: palette.ink }]}>
             {streak.current} {tr('currentStreak')}
           </Text>
-          <Text style={s.insight}>{tr('memoryUnavailable')}</Text>
+          <Text style={[s.insight, { color: palette.ink }]}>{tr('memoryUnavailable')}</Text>
         </Card>
         <Pressable onPress={load} accessibilityRole="button">
-          <Text style={s.retry}>{tr('retry')}</Text>
+          <Text style={[s.retry, { color: palette.purple }]}>{tr('retry')}</Text>
         </Pressable>
       </ScrollView>
-    </SafeAreaView>
+    </ThemedSafeArea>
   );
 }
 
 const s = StyleSheet.create({
-  page: { flex: 1, backgroundColor: 'white' },
   scroll: { padding: 20, paddingBottom: 40 },
-  title: { fontSize: 26, fontWeight: '900', color: colors.ink },
-  week: { alignSelf: 'center', backgroundColor: colors.soft, padding: 10, borderRadius: 15, margin: 18 },
-  hero: { backgroundColor: colors.soft },
-  muted: { color: colors.muted, fontWeight: '600' },
+  title: { fontSize: 26, fontWeight: '900' },
+  week: { alignSelf: 'center', padding: 10, borderRadius: 15, margin: 18, overflow: 'hidden' },
+  hero: {},
+  muted: { fontWeight: '600' },
   loader: { marginTop: 15, alignSelf: 'flex-start' },
-  time: { fontSize: 29, fontWeight: '900', color: colors.ink, marginTop: 5 },
-  good: { color: colors.success, fontSize: 12, marginTop: 4 },
+  time: { fontSize: 29, fontWeight: '900', marginTop: 5 },
+  good: { fontSize: 12, marginTop: 4 },
   chart: { height: 160, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-around', marginTop: 16 },
   chartItem: { alignItems: 'center', justifyContent: 'flex-end', gap: 4, height: 150 },
-  bar: { width: 16, backgroundColor: colors.purple, borderRadius: 5 },
-  day: { fontSize: 10, color: colors.muted },
+  bar: { width: 16, borderRadius: 5 },
+  day: { fontSize: 10 },
   grid: { flexDirection: 'row', gap: 12 },
   small: { flex: 1 },
-  metric: { fontSize: 25, fontWeight: '900', marginTop: 6, color: colors.ink },
+  metric: { fontSize: 25, fontWeight: '900', marginTop: 6 },
   goalsCard: { marginTop: 12 },
   goalRow: { marginTop: 16 },
   goalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  goalTitle: { flex: 1, fontWeight: '800', color: colors.ink },
-  goalPercent: { fontWeight: '900', color: colors.purple },
-  goalTrack: { height: 8, backgroundColor: colors.soft, borderRadius: 8, overflow: 'hidden', marginTop: 8 },
-  goalFill: { height: '100%', backgroundColor: colors.purple, borderRadius: 8 },
-  goalMeta: { marginTop: 5, fontSize: 12, color: colors.muted },
-  section: { fontWeight: '900', fontSize: 17, color: colors.ink },
-  insight: { marginTop: 15, color: colors.ink },
-  retry: { color: colors.purple, fontWeight: '800', textAlign: 'center', marginTop: 8 },
+  goalTitle: { flex: 1, fontWeight: '800' },
+  goalPercent: { fontWeight: '900' },
+  goalTrack: { height: 8, borderRadius: 8, overflow: 'hidden', marginTop: 8 },
+  goalFill: { height: '100%', borderRadius: 8 },
+  goalMeta: { marginTop: 5, fontSize: 12 },
+  section: { fontWeight: '900', fontSize: 17 },
+  insight: { marginTop: 15 },
+  retry: { fontWeight: '800', textAlign: 'center', marginTop: 8 },
 });

@@ -9,12 +9,11 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Button, Card, EmptyState } from '@/components/ui';
-import { colors } from '@/constants/theme';
+import { Button, Card, EmptyState, ThemedSafeArea } from '@/components/ui';
 import { useApp } from '@/store/app-store';
-import { t } from '@/i18n';
-import { generateAi } from '@/services/ai';
+import { formatDateTime, t } from '@/i18n';
+import { useColors } from '@/lib/use-colors';
+import { aiErrorCopyKey, generateAi } from '@/services/ai';
 import { getTier, canUseKind } from '@/lib/entitlements';
 
 type Suggestion = {
@@ -50,9 +49,14 @@ export default function ScheduleMaker() {
   const { session, settings, tasks, goals, addTask } = useApp();
   const [subjects, setSubjects] = useState('');
   const [availableTime, setAvailableTime] = useState('');
+  const [timetable, setTimetable] = useState('');
+  const [deadlines, setDeadlines] = useState('');
+  const [preferredPeriods, setPreferredPeriods] = useState('');
   const [busy, setBusy] = useState(false);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const tr = (key: string) => t(session!.language, key);
+  const palette = useColors();
+  const language = session!.language;
   const tier = getTier(session);
 
   const generate = async () => {
@@ -68,7 +72,7 @@ export default function ScheduleMaker() {
         .join('; ');
       const response = await generateAi({
         kind: 'schedule',
-        prompt: `Create a realistic study schedule. Subjects: ${subjects || 'not specified'}. Available time: ${availableTime || 'not specified'}. Existing tasks: ${existing || 'none'}. Goals: ${goals.map((goal) => goal.title).join(', ') || 'none'}. Return JSON only.`,
+        prompt: `Create a realistic study schedule. Subjects: ${subjects || 'not specified'}. Available time: ${availableTime || 'not specified'}. Timetable/busy times: ${timetable || 'not specified'}. Deadlines: ${deadlines || 'not specified'}. Preferred study periods: ${preferredPeriods || 'not specified'}. Existing tasks: ${existing || 'none'}. Goals: ${goals.map((goal) => `${goal.title}${goal.dueAt ? ` due ${goal.dueAt}` : ''}`).join(', ') || 'none'}. Return JSON only.`,
         context: settings.aiContextEnabled
           ? {
               tasks: tasks.map((task) => ({
@@ -91,7 +95,7 @@ export default function ScheduleMaker() {
         Alert.alert(tr('studySchedule'), response.text || tr('scheduleEmpty'));
       }
     } catch (error) {
-      Alert.alert(tr('studySchedule'), error instanceof Error ? error.message : tr('aiError'));
+      Alert.alert(tr('studySchedule'), tr(aiErrorCopyKey(error)));
     } finally {
       setBusy(false);
     }
@@ -115,32 +119,56 @@ export default function ScheduleMaker() {
   };
 
   return (
-    <SafeAreaView style={s.page}>
+    <ThemedSafeArea>
       <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled">
         <Pressable onPress={() => router.back()}>
-          <Text style={s.back}>{tr('back')}</Text>
+          <Text style={[s.back, { color: palette.purple }]}>{tr('back')}</Text>
         </Pressable>
-        <Text style={s.title}>{tr('studySchedule')}</Text>
-        <Text style={s.body}>{tr('scheduleIntro')}</Text>
-        <Text style={s.note}>{tr('noOverwrite')}</Text>
-        <Text style={s.label}>{tr('subjects')}</Text>
+        <Text style={[s.title, { color: palette.ink }]}>{tr('studySchedule')}</Text>
+        <Text style={[s.body, { color: palette.muted }]}>{tr('scheduleIntro')}</Text>
+        <Text style={[s.note, { color: palette.ink }]}>{tr('noOverwrite')}</Text>
+        <Text style={[s.label, { color: palette.ink }]}>{tr('subjects')}</Text>
         <TextInput
           value={subjects}
           onChangeText={setSubjects}
           placeholder={tr('subjects')}
-          placeholderTextColor={colors.muted}
-          style={s.input}
+          placeholderTextColor={palette.muted}
+          style={[s.input, { backgroundColor: palette.soft, color: palette.ink }]}
         />
-        <Text style={s.label}>{tr('availableTime')}</Text>
+        <Text style={[s.label, { color: palette.ink }]}>{tr('availableTime')}</Text>
         <TextInput
           value={availableTime}
           onChangeText={setAvailableTime}
           placeholder={tr('availableTimeHint')}
-          placeholderTextColor={colors.muted}
-          style={s.input}
+          placeholderTextColor={palette.muted}
+          style={[s.input, { backgroundColor: palette.soft, color: palette.ink }]}
+        />
+        <Text style={[s.label, { color: palette.ink }]}>{tr('timetable')}</Text>
+        <TextInput
+          value={timetable}
+          onChangeText={setTimetable}
+          placeholder={tr('timetableHint')}
+          placeholderTextColor={palette.muted}
+          style={[s.input, { backgroundColor: palette.soft, color: palette.ink }]}
+        />
+        <Text style={[s.label, { color: palette.ink }]}>{tr('deadlines')}</Text>
+        <TextInput
+          value={deadlines}
+          onChangeText={setDeadlines}
+          placeholder={tr('dueDateHint')}
+          placeholderTextColor={palette.muted}
+          style={[s.input, { backgroundColor: palette.soft, color: palette.ink }]}
+        />
+        <Text style={[s.label, { color: palette.ink }]}>{tr('preferredPeriods')}</Text>
+        <TextInput
+          value={preferredPeriods}
+          onChangeText={setPreferredPeriods}
+          placeholder={tr('availableTimeHint')}
+          placeholderTextColor={palette.muted}
+          style={[s.input, { backgroundColor: palette.soft, color: palette.ink }]}
         />
         <Button label={tr('generateSchedule')} onPress={generate} loading={busy} />
-        <Text style={s.section}>{tr('reviewSchedule')}</Text>
+        <Text style={[s.section, { color: palette.ink }]}>{tr('reviewSchedule')}</Text>
         {suggestions.length === 0 ? (
           <EmptyState title={tr('scheduleEmpty')} />
         ) : (
@@ -155,11 +183,11 @@ export default function ScheduleMaker() {
                   )
                 }
               >
-                <Text style={s.itemTitle}>
+                <Text style={[s.itemTitle, { color: palette.ink }]}>
                   {item.selected ? '☑' : '☐'} {item.title}
                 </Text>
-                <Text style={s.muted}>{new Date(item.scheduledAt).toLocaleString()}</Text>
-                {item.reason ? <Text style={s.muted}>{item.reason}</Text> : null}
+                <Text style={[s.muted, { color: palette.muted }]}>{formatDateTime(language, item.scheduledAt)}</Text>
+                {item.reason ? <Text style={[s.muted, { color: palette.muted }]}>{item.reason}</Text> : null}
               </Pressable>
             </Card>
           ))
@@ -171,20 +199,19 @@ export default function ScheduleMaker() {
           </View>
         ) : null}
       </ScrollView>
-    </SafeAreaView>
+    </ThemedSafeArea>
   );
 }
 
 const s = StyleSheet.create({
-  page: { flex: 1, backgroundColor: colors.white },
   scroll: { padding: 20, paddingBottom: 40, gap: 8 },
-  back: { color: colors.purple, fontWeight: '800' },
-  title: { fontSize: 28, fontWeight: '900', color: colors.ink },
-  body: { color: colors.muted, lineHeight: 20 },
-  note: { color: colors.ink, fontWeight: '700' },
-  label: { fontWeight: '800', color: colors.ink, marginTop: 8 },
-  input: { backgroundColor: colors.soft, borderRadius: 14, padding: 14, color: colors.ink },
-  section: { fontWeight: '900', fontSize: 18, color: colors.ink, marginTop: 12 },
-  itemTitle: { fontWeight: '800', color: colors.ink },
-  muted: { color: colors.muted, marginTop: 4 },
+  back: { fontWeight: '800' },
+  title: { fontSize: 28, fontWeight: '900' },
+  body: { lineHeight: 20 },
+  note: { fontWeight: '700' },
+  label: { fontWeight: '800', marginTop: 8 },
+  input: { borderRadius: 14, padding: 14 },
+  section: { fontWeight: '900', fontSize: 18, marginTop: 12 },
+  itemTitle: { fontWeight: '800' },
+  muted: { marginTop: 4 },
 });

@@ -319,6 +319,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       },
 
       async toggleTask(id) {
+        if (!session) {
+          return;
+        }
+
         const old = tasks.find((task) => task.id === id);
         if (!old) {
           return;
@@ -328,7 +332,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setTasks((list) => list.map((task) => (task.id === id ? optimistic : task)));
 
         try {
-          const saved = await studyData.toggleTask(optimistic);
+          const saved = await studyData.toggleTask(session.id, optimistic);
           setTasks((list) => list.map((task) => (task.id === id ? saved : task)));
         } catch {
           setTasks((list) => list.map((task) => (task.id === id ? old : task)));
@@ -350,7 +354,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           throw Error('Sign in to save tasks.');
         }
 
-        const saved = await studyData.updateTask(id, patch);
+        const saved = await studyData.updateTask(session.id, id, patch);
         setTasks((list) => list.map((task) => (task.id === id ? saved : task)));
       },
 
@@ -359,7 +363,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           throw Error('Sign in to delete tasks.');
         }
 
-        await studyData.deleteTask(id);
+        await studyData.deleteTask(session.id, id);
         setTasks((list) => list.filter((task) => task.id !== id));
       },
 
@@ -377,7 +381,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           throw Error('Sign in to update goals.');
         }
 
-        const saved = await studyData.updateGoal(id, patch);
+        const saved = await studyData.updateGoal(session.id, id, patch);
         setGoals((list) => list.map((goal) => (goal.id === id ? saved : goal)));
       },
 
@@ -386,7 +390,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           throw Error('Sign in to update goals.');
         }
 
-        const saved = await studyData.updateGoalProgress(id, currentValue);
+        const saved = await studyData.updateGoalProgress(session.id, id, currentValue);
         setGoals((list) => list.map((goal) => (goal.id === id ? saved : goal)));
       },
 
@@ -395,7 +399,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           throw Error('Sign in to delete goals.');
         }
 
-        await studyData.deleteGoal(id);
+        await studyData.deleteGoal(session.id, id);
         setGoals((list) => list.filter((goal) => goal.id !== id));
       },
 
@@ -439,7 +443,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       },
 
       async deleteAiGeneration(id) {
-        await studyData.deleteAiGeneration(id);
+        if (!session) {
+          throw Error('Sign in to delete AI history.');
+        }
+        await studyData.deleteAiGeneration(session.id, id);
         setAiHistory((list) => list.filter((item) => item.id !== id));
       },
 
