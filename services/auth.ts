@@ -4,6 +4,13 @@ import * as Linking from 'expo-linking';
 
 const redirectTo = () => Linking.createURL('/');
 
+/**
+ * Phone OTP is implemented but off for launch so Study Flow does not
+ * depend on Twilio or any paid SMS provider. Flip this to true when
+ * an SMS provider is configured in Supabase Auth.
+ */
+export const PHONE_AUTH_ENABLED = false;
+
 const displayNameFrom = (user: {
   email?: string;
   phone?: string;
@@ -136,6 +143,10 @@ export const auth = {
   },
 
   async sendPhoneCode(phone: string) {
+    if (!PHONE_AUTH_ENABLED) {
+      throw new Error('Phone sign-in is not enabled for this launch.');
+    }
+
     if (!isSupabaseConfigured) {
       throw new Error('Supabase is not configured.');
     }
@@ -148,6 +159,10 @@ export const auth = {
   },
 
   async verifyPhoneCode(phone: string, token: string) {
+    if (!PHONE_AUTH_ENABLED) {
+      throw new Error('Phone sign-in is not enabled for this launch.');
+    }
+
     if (!isSupabaseConfigured) {
       throw new Error('Supabase is not configured.');
     }

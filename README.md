@@ -13,7 +13,7 @@ npm install
 npx expo start
 ```
 
-Authentication uses the existing Supabase project. Email magic links, email/password, Google OAuth and phone OTP are implemented in the client. Enable the matching providers in the Supabase dashboard. Resend SMTP should send from `auth.getstudyflow.in`. Redirect URLs must stay on trusted domains (`studyflow://` and `https://getstudyflow.in`). Do not use wildcard redirects.
+Authentication uses the existing Supabase project. Launch sign-in is email (magic link or password) and Google OAuth. Phone OTP remains in the client behind `PHONE_AUTH_ENABLED` so it can be turned on later without an SMS provider for launch. Enable Email and Google in the Supabase dashboard. Resend SMTP should send from `auth.getstudyflow.in`. Redirect URLs must stay on trusted domains (`studyflow://` and `https://getstudyflow.in`). Do not use wildcard redirects.
 
 ## Architecture
 

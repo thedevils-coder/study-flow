@@ -16,6 +16,7 @@ import { Button } from '@/components/ui';
 import { BRAND, colors } from '@/constants/theme';
 import { useApp } from '@/store/app-store';
 import { t } from '@/i18n';
+import { PHONE_AUTH_ENABLED } from '@/services/auth';
 
 type Mode = 'email' | 'phone';
 type EmailMode = 'magic' | 'password' | 'signup' | 'reset';
@@ -134,23 +135,25 @@ export default function Welcome() {
           <Text style={s.title}>{tr('welcomeTitle')}</Text>
           <Text style={s.sub}>{tr('welcomeSubtitle')}</Text>
 
-          <View style={s.tabs}>
-            {(['email', 'phone'] as Mode[]).map((item) => (
-              <Pressable
-                key={item}
-                onPress={() => setMode(item)}
-                style={[s.tab, mode === item && s.tabActive]}
-                accessibilityRole="button"
-                accessibilityLabel={item === 'email' ? tr('continueWithEmail') : tr('continueWithPhone')}
-              >
-                <Text style={[s.tabText, mode === item && s.tabTextActive]}>
-                  {item === 'email' ? tr('email') : tr('phone')}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
+          {PHONE_AUTH_ENABLED ? (
+            <View style={s.tabs}>
+              {(['email', 'phone'] as Mode[]).map((item) => (
+                <Pressable
+                  key={item}
+                  onPress={() => setMode(item)}
+                  style={[s.tab, mode === item && s.tabActive]}
+                  accessibilityRole="button"
+                  accessibilityLabel={item === 'email' ? tr('continueWithEmail') : tr('continueWithPhone')}
+                >
+                  <Text style={[s.tabText, mode === item && s.tabTextActive]}>
+                    {item === 'email' ? tr('email') : tr('phone')}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
 
-          {mode === 'email' ? (
+          {mode === 'email' || !PHONE_AUTH_ENABLED ? (
             <View style={s.form}>
               {emailMode === 'signup' || emailMode === 'magic' ? (
                 <TextInput
