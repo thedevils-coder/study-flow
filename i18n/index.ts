@@ -1,5 +1,6 @@
 import { en, CopyKey } from '@/i18n/en';
 import { translations } from '@/i18n/translations';
+import { additions } from '@/i18n/additions';
 
 export const languages = [
   ['en', 'English'],
@@ -51,11 +52,80 @@ type Copy = Record<string, string>;
 const getCopy = (language: string): Copy => ({
   ...en,
   ...(translations[language] ?? {}),
+  ...(additions[language] ?? {}),
 });
 
-export const t = (language: string, key: string): string => {
+export const t = (
+  language: string,
+  key: string,
+  vars?: Record<string, string | number>,
+): string => {
   const copy = getCopy(language);
-  return copy[key] ?? en[key as CopyKey] ?? key;
+  let value = copy[key] ?? en[key as CopyKey] ?? key;
+  if (vars) {
+    for (const [name, replacement] of Object.entries(vars)) {
+      value = value.replaceAll(`{${name}}`, String(replacement));
+    }
+  }
+  return value;
+};
+
+export const localeTag = (language: string) => {
+  const resolved = resolveLanguage(language);
+  if (resolved === 'zh') {
+    return 'zh-CN';
+  }
+  if (resolved === 'pt') {
+    return 'pt-BR';
+  }
+  return resolved;
+};
+
+export const formatDateTime = (
+  language: string,
+  value: Date | string,
+  options?: Intl.DateTimeFormatOptions,
+) => {
+  const date = typeof value === 'string' ? new Date(value) : value;
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+  return new Intl.DateTimeFormat(
+    localeTag(language),
+    options ?? { dateStyle: 'medium', timeStyle: 'short' },
+  ).format(date);
+};
+
+export const formatDate = (language: string, value: Date | string) =>
+  formatDateTime(language, value, { dateStyle: 'medium' });
+
+export const formatTime = (language: string, value: Date | string) =>
+  formatDateTime(language, value, { hour: 'numeric', minute: '2-digit' });
+
+export const formatDurationLocale = (language: string, seconds: number) => {
+  const safe = Math.max(0, Math.floor(seconds));
+  const minutes = Math.floor(safe / 60);
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  if (hours > 0) {
+    return `${hours}${t(language, 'hoursShort')} ${remainingMinutes}${t(language, 'minutesShort')}`;
+  }
+  return `${remainingMinutes}${t(language, 'minutesShort')}`;
+};
+
+export const subscriptionStatusLabel = (language: string, status: string) => {
+  const map: Record<string, CopyKey> = {
+    none: 'statusNone',
+    active: 'statusActive',
+    cancelled: 'statusCancelled',
+    expired: 'statusExpired',
+    failed: 'statusFailed',
+    ending: 'statusEnding',
+    pending: 'statusPending',
+    refunded: 'statusRefunded',
+  };
+  const key = map[status];
+  return key ? t(language, key) : status;
 };
 
 export const validateLocales = (): string[] =>
@@ -65,7 +135,7 @@ export const validateLocales = (): string[] =>
         return Object.values(en).some((value) => !value.trim());
       }
 
-      const locale = translations[code] ?? {};
+      const locale = getCopy(code);
       return (Object.keys(en) as CopyKey[]).some((key) => {
         const value = locale[key] ?? en[key];
         return typeof value !== 'string' || value.trim().length === 0;
@@ -74,6 +144,12 @@ export const validateLocales = (): string[] =>
     .map(([code]) => code);
 
 export const missingKeys = (language: string): string[] => {
-  const locale = translations[language] ?? {};
+  if (language === 'en') {
+    return [];
+  }
+  const locale = {
+    ...(translations[language] ?? {}),
+    ...(additions[language] ?? {}),
+  };
   return (Object.keys(en) as CopyKey[]).filter((key) => !locale[key]);
 };

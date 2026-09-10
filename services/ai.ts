@@ -1,5 +1,8 @@
 import { AiKind } from '@/types';
 import { getSupabase, isSupabaseConfigured } from '@/lib/supabase';
+import { aiErrorCopyKey } from '@/lib/ai-errors';
+
+export { aiErrorCopyKey };
 
 export type GenerateInput = {
   kind: AiKind;

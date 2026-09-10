@@ -372,6 +372,36 @@ export const en = {
   copied: 'Copied',
   accountSwitched: 'Signed in to a different account.',
   networkError: 'Network error. Check your connection and retry.',
+  cancelEdit: 'Cancel edit',
+  deleteGoal: 'Delete goal',
+  balanced: 'Balanced',
+  invalidGoalTarget: 'Enter a whole number of at least 1 for the target.',
+  noProgressYet: 'No study data to show yet.',
+  timetable: 'Timetable',
+  timetableHint: 'Classes or busy times',
+  leoSuggestPlan: 'Help me plan this week',
+  leoSuggestFocus: 'How should I use my focus sessions?',
+  leoSuggestGoals: 'How can I catch up on my goals?',
+  statusNone: 'No plan',
+  statusActive: 'Active',
+  statusCancelled: 'Cancelled',
+  statusExpired: 'Expired',
+  statusFailed: 'Billing issue',
+  statusEnding: 'Ending',
+  statusPending: 'Pending',
+  statusRefunded: 'Refunded',
+  legalPrivacyBody:
+    'Study Flow stores your account, tasks, goals, focus sessions, settings and AI prompts so the app can function. Data is held in Supabase with row-level security. AI prompts are sent through a server path to a configured provider and do not include passwords, payment details or API keys. We do not sell personal data.',
+  legalTermsBody:
+    'Study Flow is a study planner with optional AI tools. AI output can be wrong. You are responsible for how you use generated study material. The app is provided as-is for personal study use.',
+  legalSubscriptionBody:
+    'A 15-day free trial is offered through Apple App Store or Google Play via RevenueCat. After the trial, Basic is displayed as ₹99/month or ₹1,000/year and Pro as ₹299/month or ₹2,500/year. The store price in your local currency is the amount billed. Subscriptions renew until cancelled in Apple or Google account settings. Study Flow never collects cards, UPI or bank details.',
+  legalDeletionBody:
+    'Use Settings → Delete account to permanently delete your user, tasks, focus sessions, goals, settings and AI history. Profile rows cascade when the auth user is deleted.',
+  hoursShort: 'h',
+  minutesShort: 'm',
+  supabaseNotConfigured: 'Supabase is not configured.',
+  phoneAuthDisabled: 'Phone sign-in is not enabled for this launch.',
 } as const;
 
 export type CopyKey = keyof typeof en;
