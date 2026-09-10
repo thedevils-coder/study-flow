@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, radius } from '@/constants/theme';
+import { useColors } from '@/lib/use-colors';
 
 export function Card({
   children,
@@ -17,7 +18,18 @@ export function Card({
   children: React.ReactNode;
   style?: ViewStyle | ViewStyle[];
 }) {
-  return <View style={[s.card, style]}>{children}</View>;
+  const palette = useColors();
+  return (
+    <View
+      style={[
+        s.card,
+        { backgroundColor: palette.card, borderColor: palette.border },
+        style,
+      ]}
+    >
+      {children}
+    </View>
+  );
 }
 
 export function Button({
@@ -33,6 +45,7 @@ export function Button({
   disabled?: boolean;
   loading?: boolean;
 }) {
+  const palette = useColors();
   return (
     <Pressable
       accessibilityRole="button"
@@ -41,18 +54,18 @@ export function Button({
       disabled={disabled || loading}
       style={[
         s.button,
-        variant === 'light' && s.light,
+        variant === 'light' && { backgroundColor: palette.lilac },
         variant === 'danger' && s.danger,
         (disabled || loading) && s.disabled,
       ]}
     >
       {loading ? (
-        <ActivityIndicator color={variant === 'light' ? colors.purple : 'white'} />
+        <ActivityIndicator color={variant === 'light' ? palette.purple : 'white'} />
       ) : (
         <Text
           style={[
             s.buttonText,
-            variant === 'light' && s.lightText,
+            variant === 'light' && { color: palette.purple },
             variant === 'danger' && s.dangerText,
           ]}
         >
@@ -74,20 +87,21 @@ export function Row({
   value?: string;
   onPress?: () => void;
 }) {
+  const palette = useColors();
   return (
     <Pressable
       onPress={onPress}
       disabled={!onPress}
       accessibilityRole={onPress ? 'button' : 'text'}
       accessibilityLabel={value ? `${label}, ${value}` : label}
-      style={s.row}
+      style={[s.row, { borderColor: palette.border }]}
     >
-      <View style={s.icon}>
-        <Ionicons name={icon} size={18} color={colors.purple} />
+      <View style={[s.icon, { backgroundColor: palette.soft }]}>
+        <Ionicons name={icon} size={18} color={palette.purple} />
       </View>
-      <Text style={s.rowText}>{label}</Text>
-      {value ? <Text style={s.value}>{value}</Text> : null}
-      {onPress ? <Ionicons name="chevron-forward" size={17} color={colors.muted} /> : null}
+      <Text style={[s.rowText, { color: palette.ink }]}>{label}</Text>
+      {value ? <Text style={[s.value, { color: palette.muted }]}>{value}</Text> : null}
+      {onPress ? <Ionicons name="chevron-forward" size={17} color={palette.muted} /> : null}
     </Pressable>
   );
 }
@@ -99,10 +113,11 @@ export function EmptyState({
   title: string;
   body?: string;
 }) {
+  const palette = useColors();
   return (
     <Card>
-      <Text style={s.emptyTitle}>{title}</Text>
-      {body ? <Text style={s.emptyBody}>{body}</Text> : null}
+      <Text style={[s.emptyTitle, { color: palette.ink }]}>{title}</Text>
+      {body ? <Text style={[s.emptyBody, { color: palette.muted }]}>{body}</Text> : null}
     </Card>
   );
 }
@@ -116,12 +131,13 @@ export function ErrorState({
   onRetry?: () => void;
   retryLabel?: string;
 }) {
+  const palette = useColors();
   return (
     <Card>
-      <Text style={s.emptyTitle}>{title}</Text>
+      <Text style={[s.emptyTitle, { color: palette.ink }]}>{title}</Text>
       {onRetry ? (
         <Pressable onPress={onRetry} accessibilityRole="button">
-          <Text style={s.retry}>{retryLabel ?? 'Retry'}</Text>
+          <Text style={[s.retry, { color: palette.purple }]}>{retryLabel ?? 'Retry'}</Text>
         </Pressable>
       ) : null}
     </Card>
@@ -129,9 +145,10 @@ export function ErrorState({
 }
 
 export function ScreenSpinner() {
+  const palette = useColors();
   return (
     <View style={s.spinner}>
-      <ActivityIndicator color={colors.purple} />
+      <ActivityIndicator color={palette.purple} />
     </View>
   );
 }

@@ -4,7 +4,7 @@ An Expo Router / TypeScript mobile app for planning, focus, progress and Leo, St
 
 **BUILT FOR DREAMERS. MADE FOR ACHIEVERS.**
 
-Launch: 12 September, 7:00 PM IST · https://getstudyflow.in
+Public website: https://getstudyflow.in
 
 ## Run
 
@@ -13,7 +13,21 @@ npm install
 npx expo start
 ```
 
-Authentication uses the existing Supabase project. Launch sign-in is email (magic link or password) and Google OAuth. Phone OTP remains in the client behind `PHONE_AUTH_ENABLED` so it can be turned on later without an SMS provider for launch. Enable Email and Google in the Supabase dashboard. Resend SMTP should send from `auth.getstudyflow.in`. Redirect URLs must stay on trusted domains (`studyflow://` and `https://getstudyflow.in`). Do not use wildcard redirects.
+Authentication uses the existing Supabase project. Launch sign-in is email (magic link or password) and Google OAuth. Phone OTP remains in the client behind `PHONE_AUTH_ENABLED` so it can be turned on later without an SMS provider for launch. Enable Email and Google in the Supabase dashboard. Resend SMTP should send from `auth.getstudyflow.in`.
+
+Redirect URLs must stay on trusted domains. Do **not** add `studyflow://` to the Google Cloud OAuth client. Google redirects to the Supabase callback; the app then receives `studyflow:///?code=...` (also `studyflow://?code=...`).
+
+Supabase Auth → URL configuration:
+
+- Site URL: `https://getstudyflow.in`
+- Redirect URLs: `studyflow:///`, `studyflow://`, `https://getstudyflow.in`
+
+Google Cloud (Web client):
+
+- Authorized redirect URI: `https://<PROJECT_REF>.supabase.co/auth/v1/callback`
+- JavaScript origin: `https://<PROJECT_REF>.supabase.co`
+
+Do not use wildcard redirects.
 
 ## Architecture
 

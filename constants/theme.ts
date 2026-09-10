@@ -12,7 +12,31 @@ export const colors = {
   white: '#FFFFFF',
   black: '#000000',
   gold: '#F5C518',
+  background: '#FFFFFF',
+  card: '#FFFFFF',
 };
+
+export const darkColors: typeof colors = {
+  purple: '#8B73FF',
+  purpleDark: '#B5A4FF',
+  ink: '#F4F1FF',
+  muted: '#A8A3BC',
+  soft: '#1C1830',
+  lilac: '#2A2444',
+  border: '#3A3454',
+  success: '#3DDB8A',
+  danger: '#FF6B7A',
+  warning: '#F0A04B',
+  white: '#FFFFFF',
+  black: '#000000',
+  gold: '#F5C518',
+  background: '#12101C',
+  card: '#1C1830',
+};
+
+export type ThemeName = 'light' | 'dark';
+
+export const paletteFor = (theme: ThemeName) => (theme === 'dark' ? darkColors : colors);
 
 export const radius = {
   sm: 12,

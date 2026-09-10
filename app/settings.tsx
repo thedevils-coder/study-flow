@@ -25,6 +25,17 @@ export default function Settings() {
   const update = async (patch: Partial<UserSettings>) => {
     try {
       await saveSettings(patch);
+      if (
+        patch.notificationsEnabled === true ||
+        patch.studyReminders !== undefined ||
+        patch.goalReminders !== undefined
+      ) {
+        const { syncLocalReminders } = await import('@/services/notifications');
+        const result = await syncLocalReminders({ ...settings, ...patch });
+        if (result === 'denied') {
+          Alert.alert(tr('notifications'), tr('notificationsPermissionDenied'));
+        }
+      }
     } catch {
       Alert.alert(tr('settings'), tr('unableToSaveSettings'));
     }

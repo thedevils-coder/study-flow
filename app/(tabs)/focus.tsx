@@ -7,13 +7,14 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { Button, Card, EmptyState, Row } from '@/components/ui';
 import { colors } from '@/constants/theme';
 import { useApp } from '@/store/app-store';
 import { t } from '@/i18n';
 import { studyData } from '@/services/study-data';
 import { FocusSession } from '@/types';
-import { endOfDay, endOfWeek, formatDuration, startOfDay, startOfWeek } from '@/lib/dates';
+import { endOfDay, formatDuration, startOfDay, startOfWeek, endOfWeek, addDays } from '@/lib/dates';
 
 export default function Focus() {
   const { session, settings, recordFocus } = useApp();
@@ -41,17 +42,29 @@ export default function Focus() {
 
     const load = async () => {
       const now = new Date();
-      const [today, week] = await Promise.all([
+      const [today, week, recent] = await Promise.all([
         studyData.focusSessions(session.id, startOfDay(now), endOfDay(now)),
         studyData.focusSessions(session.id, startOfWeek(now), endOfWeek(now)),
+        studyData.focusSessions(session.id, addDays(startOfDay(now), -14), endOfDay(now)),
       ]);
-      setHistory([...today].reverse());
+      setHistory([...recent].reverse());
       setTodaySeconds(today.reduce((sum, item) => sum + item.duration_seconds, 0));
       setWeekSeconds(week.reduce((sum, item) => sum + item.duration_seconds, 0));
     };
 
     void load();
   }, [session]);
+
+  useEffect(() => {
+    if (!running) {
+      void deactivateKeepAwake('focus');
+      return;
+    }
+    void activateKeepAwakeAsync('focus');
+    return () => {
+      void deactivateKeepAwake('focus');
+    };
+  }, [running]);
 
   useEffect(() => {
     if (!running) {
@@ -158,7 +171,7 @@ export default function Focus() {
         {history.length === 0 ? (
           <EmptyState title={tr('noSessionsYet')} />
         ) : (
-          history.slice(0, 8).map((item, index) => (
+          history.slice(0, 20).map((item, index) => (
             <Card key={`${item.started_at}-${index}`}>
               <Text style={s.taskTitle}>{formatDuration(item.duration_seconds)}</Text>
               <Text style={s.muted}>{new Date(item.started_at).toLocaleString()}</Text>
