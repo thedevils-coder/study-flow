@@ -103,3 +103,39 @@ export const greetingFor = (date = new Date()) => {
   if (hour < 17) return 'Good afternoon';
   return 'Good evening';
 };
+
+export function formatRelativeTime(iso: string, now = new Date()) {
+  const then = new Date(iso);
+  if (Number.isNaN(then.getTime())) return '';
+  const diff = Math.max(0, now.getTime() - then.getTime());
+  const minutes = Math.floor(diff / 60_000);
+  if (minutes < 1) return 'Just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return hours === 1 ? '1h ago' : `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return 'yesterday';
+  if (days < 7) return `${days} days ago`;
+  return formatShortDate(then);
+}
+
+export function kindLabel(kind: string) {
+  switch (kind) {
+    case 'notes':
+      return 'Notes';
+    case 'summary':
+      return 'Summary';
+    case 'flashcards':
+      return 'Flashcards';
+    case 'quiz':
+      return 'Quiz';
+    case 'explain':
+      return 'Explain';
+    case 'leo':
+      return 'Leo';
+    case 'schedule':
+      return 'Schedule';
+    default:
+      return 'More';
+  }
+}

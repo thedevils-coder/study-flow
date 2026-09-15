@@ -14,7 +14,6 @@ export default function Welcome() {
     <Screen>
       <View style={styles.hero}>
         <Image source={require('../../assets/images/icon.png')} style={styles.logo} />
-        <Text style={[styles.brand, { color: colors.text }]}>{BRAND.wordmark}</Text>
         <Text style={[styles.tag, { color: colors.accent }]}>{BRAND.tagline}</Text>
         <Text style={[styles.title, { color: colors.text }]}>Plan, focus, and achieve your goals.</Text>
         <Text style={[styles.sub, { color: colors.secondaryText }]}>
@@ -29,10 +28,9 @@ export default function Welcome() {
 }
 
 const styles = StyleSheet.create({
-  hero: { alignItems: 'center', paddingTop: 48, paddingBottom: 36 },
-  logo: { width: 96, height: 96, borderRadius: 28, marginBottom: 18 },
-  brand: { fontSize: 22, fontWeight: '900', letterSpacing: 1 },
-  tag: { marginTop: 10, fontSize: 11, fontWeight: '800', letterSpacing: 1.4, textAlign: 'center' },
-  title: { marginTop: 28, fontSize: 30, fontWeight: '900', textAlign: 'center', lineHeight: 36 },
+  hero: { alignItems: 'center', paddingTop: 24, paddingBottom: 36 },
+  logo: { width: 180, height: 180, borderRadius: 36, marginBottom: 18 },
+  tag: { marginTop: 4, fontSize: 11, fontWeight: '800', letterSpacing: 1.4, textAlign: 'center' },
+  title: { marginTop: 22, fontSize: 30, fontWeight: '900', textAlign: 'center', lineHeight: 36 },
   sub: { marginTop: 12, fontSize: 16, lineHeight: 24, textAlign: 'center' },
 });

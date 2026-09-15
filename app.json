@@ -14,7 +14,7 @@
         {
           "backgroundColor": "#000000",
           "image": "./assets/images/splash.png",
-          "imageWidth": 280,
+          "imageWidth": 320,
           "resizeMode": "contain"
         }
       ],
@@ -43,7 +43,7 @@
       "package": "com.prabhjotkaur.studyflow",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#5932E8"
+        "backgroundColor": "#000000"
       },
       "intentFilters": [
         {
