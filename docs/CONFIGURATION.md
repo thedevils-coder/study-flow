@@ -12,5 +12,6 @@ These are account actions, not application-code gaps.
 | Google Play app + subscriptions | Play Console | Required before production IAP works |
 | Resend | Supabase Auth email | Domain `auth.getstudyflow.in` |
 | PayPal / Razorpay | Not for Play digital IAP | Modular stubs only |
+| EAS Update | Production profile only | Preview/development use the embedded bundle. Publish with `eas update --channel production` when you want OTA. |
 
 Android package: `com.prabhjotkaur.studyflow`

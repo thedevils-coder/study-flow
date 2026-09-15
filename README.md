@@ -68,3 +68,11 @@ Until those values exist, the app shows configuration states instead of fake suc
 ## EAS profiles
 
 `development`, `preview`, and `production` (auto-increment) are in `eas.json`.
+
+Preview and development builds do **not** download a remote EAS Update on launch. They run the JavaScript embedded in the APK. Production builds keep EAS Update enabled (`https://u.expo.dev/<projectId>`, `appVersion` runtime, `production` channel) for a later production release.
+
+After changing native/update config, install a new Android preview build:
+
+```bash
+npx eas-cli build --platform android --profile preview
+```
