@@ -1,6 +1,12 @@
 # Study Flow
 
-An Expo Router / TypeScript mobile implementation of the supplied Study Flow portfolio: Home, Planner, Focus, Study Shield integration point, Progress, Profile, multilingual preferences, subscription architecture, and a protected admin preview.
+**BUILT FOR DREAMERS. MADE FOR ACHIEVERS.**
+
+Study Flow is an Android-first student productivity app: tasks, planner, Focus, Progress, goals, achievements, Leo, AI Meter, and subscriptions.
+
+Official website: [https://getstudyflow.in](https://getstudyflow.in)
+
+This tree is a clean rebuild. The previous implementation remains on `main` and `origin/cursor/study-flow-production-cf55` as UI/product reference only. See `reference/README.md`.
 
 ## Run
 
@@ -9,31 +15,56 @@ npm install
 npx expo start
 ```
 
-Open the QR code in Expo Go for UI and Supabase email-link testing. Authentication uses Supabase Email OTP; authorization is read from the authenticated user’s Supabase profile. Admin access is never granted from an email prefix.
+Primary Android build:
+
+```bash
+npx eas-cli build --platform android --profile preview
+```
+
+Development does not require Android Studio or a local Android SDK. Use Expo + EAS cloud builds.
 
 ## Architecture
 
-- `app/`: Expo Router screens and guarded routes
-- `components/`: shared visual primitives
-- `services/`: auth persistence, pricing, and billing contracts
-- `store/`: application state
-- `supabase/migrations/`: schema, RLS, and Study Flow data tables
-- `i18n/`: supported language registry and UI copy
+- `app/` — Expo Router screens (tabs: Home, Plan, Focus, Progress, Profile)
+- `components/` — shared UI
+- `providers/` — auth, study data, theme
+- `services/` — auth, tasks, focus, goals, AI, subscriptions, notifications
+- `lib/` — entitlements, streak, progress, validation
+- `supabase/migrations/` — PostgreSQL + RLS
+- `supabase/functions/` — `ai-generate`, `delete-account`, `revenuecat-webhook`, `admin-stats`
+- `website/` — public site for getstudyflow.in
+- English only. There is no language switcher.
 
-## Supabase setup
+## What you still need to configure
 
-1. Create a Supabase project, then copy its Project URL and **publishable** key into a local `.env` based on `.env.example`.
-2. In Authentication, enable Email OTP and set the redirect URL to `studyflow://` (add your production universal/app links too).
-3. Install the Supabase CLI, run `supabase link --project-ref <your-ref>`, then `supabase db push` to apply `supabase/migrations/202608080001_study_flow.sql`.
-   This also applies the task, goal, focus-session, and settings migration; all records are owner-scoped with RLS.
-4. Assign an admin only through the protected database/dashboard, e.g. update the profile role after verifying the user. The client cannot assign its own role.
-5. In Edge Function secrets, set `REVENUECAT_WEBHOOK_SECRET`, `SUPABASE_SERVICE_ROLE_KEY`, and, only for server-side RevenueCat API work, `REVENUECAT_SECRET_API_KEY`. Do not add any of these to `.env` or the mobile app. Deploy with `supabase functions deploy revenuecat-webhook --no-verify-jwt`.
+Do not paste secrets into the app, git, or chat. Configure them in the provider dashboards.
 
-## RevenueCat setup
+1. **Supabase**
+   - Project URL + publishable key → `EXPO_PUBLIC_SUPABASE_*`
+   - Apply migrations with `supabase db push`
+   - Enable Email and Google providers
+   - Google redirect: the Supabase callback URL, not an arbitrary extra URL
+   - App return scheme: `studyflow://`
+   - Edge Function secrets: `SUPABASE_SERVICE_ROLE_KEY`, `AI_API_KEY`, optional `AI_API_URL` / `AI_MODEL`, `REVENUECAT_WEBHOOK_SECRET`
+   - Deploy: `ai-generate`, `delete-account`, `admin-stats`, `revenuecat-webhook` (`--no-verify-jwt` for the webhook)
 
-1. Create a RevenueCat project and add iOS and Android apps. Put only the corresponding **public app SDK keys** in `EXPO_PUBLIC_REVENUECAT_IOS_API_KEY` and `EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY`.
-2. Create one App Store Connect / Google Play monthly subscription at ₹99/month. Configure its **15-day free introductory trial in the store**, then import it into a RevenueCat offering with a package identifier containing `monthly`. Attach it to the `premium` entitlement (or change `EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID`). Do not create a ₹0 product and do not configure a separate trial package.
-3. Configure RevenueCat’s webhook to the deployed `revenuecat-webhook` URL using the same webhook secret. This function is the server-side source for trial, renewal, cancellation, expiration, and payment-failure state.
-4. Install dependencies, then create a development build (`npx expo install expo-dev-client && npx expo prebuild && eas build --profile development`). Real iOS/Android IAP cannot run in Expo Go; RevenueCat Preview API mode is the Expo Go-only alternative and never grants real access.
+2. **RevenueCat + Google Play**
+   - Public SDK keys only in Expo public env vars
+   - Products: `studyflow_basic_monthly`, `studyflow_basic_yearly`, `studyflow_pro_monthly`, `studyflow_pro_yearly`
+   - Entitlements: `basic`, `pro`
+   - Keep any existing Test Store products intact
+   - Production Android products require a Play Console app for `com.prabhjotkaur.studyflow`. Missing Play Console setup is not an app-code bug.
 
-Prices, entitlements, admin authorization, payment verification and webhook updates are server-authoritative. No payment secret belongs in this app. Study Shield also needs a development build for native controls.
+3. **Google Play**
+   - Package: `com.prabhjotkaur.studyflow`
+   - Digital subscriptions must use Google Play Billing. PayPal and Razorpay are modular and disabled for in-app digital subscriptions.
+
+4. **Resend**
+   - Auth email from `auth.getstudyflow.in`
+   - API keys stay in Supabase/Resend, never in the app
+
+Until those values exist, the app shows configuration states instead of fake success.
+
+## EAS profiles
+
+`development`, `preview`, and `production` (auto-increment) are in `eas.json`.

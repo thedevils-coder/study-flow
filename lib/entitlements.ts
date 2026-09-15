@@ -1,0 +1,88 @@
+import type { Plan, SubscriptionStatus, SubscriptionTier, UserSession } from '@/types';
+
+export const PRODUCT_IDS = {
+  basicMonthly: 'studyflow_basic_monthly',
+  basicYearly: 'studyflow_basic_yearly',
+  proMonthly: 'studyflow_pro_monthly',
+  proYearly: 'studyflow_pro_yearly',
+} as const;
+
+export const ENTITLEMENT_BASIC = 'basic';
+export const ENTITLEMENT_PRO = 'pro';
+export const ENTITLEMENT_LEGACY_PREMIUM = 'premium';
+
+const ACTIVE_STATUSES: SubscriptionStatus[] = ['active', 'cancelled', 'ending', 'pending'];
+
+export function normalizePlan(plan: string | null | undefined): Plan {
+  if (plan === 'monthly' || plan === 'premium') return 'basic';
+  if (plan === 'trial' || plan === 'basic' || plan === 'pro') return plan;
+  return 'none';
+}
+
+export function getTier(session: UserSession | null | undefined): SubscriptionTier {
+  if (!session) return 'free';
+
+  const plan = normalizePlan(session.plan);
+  const status = session.subscriptionStatus;
+  const entitlements = session.entitlements.map((item) => item.toLowerCase());
+  const hasPro = entitlements.some((item) => item === ENTITLEMENT_PRO || item.includes('pro'));
+  const hasBasic = entitlements.some(
+    (item) =>
+      item === ENTITLEMENT_BASIC ||
+      item === ENTITLEMENT_LEGACY_PREMIUM ||
+      item.includes('basic') ||
+      item.includes('premium'),
+  );
+
+  if (status === 'expired' || status === 'refunded' || status === 'none' || status === 'failed') {
+    if (plan === 'trial' && session.trialEndsAt) {
+      const ends = new Date(session.trialEndsAt);
+      if (!Number.isNaN(ends.valueOf()) && ends.getTime() > Date.now()) {
+        return 'trial';
+      }
+    }
+    return 'free';
+  }
+
+  if (!ACTIVE_STATUSES.includes(status) && plan !== 'trial') {
+    return 'free';
+  }
+
+  if (hasPro || plan === 'pro') return 'pro';
+  if (plan === 'trial') return 'trial';
+  if (hasBasic || plan === 'basic') return 'basic';
+  if (ACTIVE_STATUSES.includes(status)) return 'basic';
+  return 'free';
+}
+
+export function hasBasicAccess(tier: SubscriptionTier) {
+  return tier === 'trial' || tier === 'basic' || tier === 'pro';
+}
+
+export function hasProAccess(tier: SubscriptionTier) {
+  return tier === 'pro' || tier === 'trial';
+}
+
+export function canUseKind(
+  tier: SubscriptionTier,
+  kind: 'notes' | 'summary' | 'flashcards' | 'quiz' | 'explain' | 'leo' | 'schedule' | 'other',
+) {
+  if (!hasBasicAccess(tier)) return false;
+  if (kind === 'flashcards' || kind === 'quiz' || kind === 'leo' || kind === 'schedule') {
+    return hasProAccess(tier);
+  }
+  return true;
+}
+
+export function dailyAiLimit(tier: SubscriptionTier) {
+  if (tier === 'pro') return 80;
+  if (tier === 'trial' || tier === 'basic') return 10;
+  return 0;
+}
+
+export function displayPlanLabel(tier: SubscriptionTier) {
+  if (tier === 'pro') return 'Pro';
+  if (tier === 'basic') return 'Basic';
+  if (tier === 'trial') return 'Free trial';
+  return 'Free';
+}

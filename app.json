@@ -1,38 +1,65 @@
 {
-    "expo":  {
-                 "name":  "Study Flow",
-                 "slug":  "study-flow",
-                 "scheme":  "studyflow",
-                 "version":  "1.0.0",
-                 "icon":  "./assets/images/icon.png",
-                 "orientation":  "portrait",
-                 "userInterfaceStyle":  "light",
-                 "plugins":  [
-                                 "expo-router",
-                                 [
-                                     "expo-splash-screen",
-                                     {
-                                         "backgroundColor":  "#000000",
-                                         "image":  "./assets/images/icon.png",
-                                         "imageWidth":  250,
-                                         "resizeMode":  "contain"
-                                     }
-                                 ],
-                                 "expo-font"
-                             ],
-                 "experiments":  {
-                                     "typedRoutes":  true
-                                 },
-                 "extra":  {
-                               "router":  {
-
-                                          },
-                               "eas":  {
-                                           "projectId":  "645e516b-e914-4448-84a6-b52edcc2c849"
-                                       }
-                           },
-                 "android":  {
-                                 "package":  "com.prabhjotkaur.studyflow"
-                             }
-             }
+  "expo": {
+    "name": "Study Flow",
+    "slug": "study-flow",
+    "scheme": "studyflow",
+    "version": "1.0.0",
+    "icon": "./assets/images/icon.png",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#000000",
+          "image": "./assets/images/splash.png",
+          "imageWidth": 280,
+          "resizeMode": "contain"
+        }
+      ],
+      "expo-font",
+      "expo-web-browser",
+      "expo-notifications",
+      "@react-native-community/datetimepicker"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "645e516b-e914-4448-84a6-b52edcc2c849"
+      }
+    },
+    "ios": {
+      "bundleIdentifier": "com.prabhjotkaur.studyflow",
+      "supportsTablet": true,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "com.prabhjotkaur.studyflow",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#5932E8"
+      },
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": false,
+          "data": [
+            {
+              "scheme": "studyflow"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ]
+    }
+  }
 }
