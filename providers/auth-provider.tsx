@@ -6,6 +6,7 @@ import { isAuthCallbackUrl } from '@/lib/auth-callback';
 import { isSupabaseConfigured } from '@/lib/config';
 import { authService } from '@/services/auth';
 import { hydrateProfile } from '@/services/profile';
+import { testerService } from '@/services/tester';
 import {
   configurePurchases,
   customerInfo,
@@ -13,6 +14,7 @@ import {
   restorePurchases,
   type SubscriptionSnapshot,
 } from '@/services/subscriptions';
+import { applyTesterDemoAccess, isTesterBuildEnabled, isTesterEmail } from '@/lib/tester';
 import type { ProductId, SubscriptionTier, UserSession } from '@/types';
 
 type AuthContextValue = {
@@ -22,6 +24,7 @@ type AuthContextValue = {
   tier: SubscriptionTier;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, name: string) => Promise<{ needsVerification: boolean }>;
+  signInTester: () => Promise<void>;
   signInWithGoogle: () => Promise<{ cancelled: boolean }>;
   resetPassword: (email: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -41,19 +44,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const handledUrls = useRef(new Set<string>());
 
   const applySubscription = useCallback((snapshot: SubscriptionSnapshot) => {
-    setSession((current) => (current ? { ...current, ...snapshot } : current));
+    setSession((current) => (current ? applyTesterDemoAccess({ ...current, ...snapshot }) : current));
   }, []);
 
   const establish = useCallback(async (seed: UserSession) => {
     establishing.current = true;
     try {
+      if (isTesterBuildEnabled() && isTesterEmail(seed.email)) {
+        await testerService.ensureSeeded(seed).catch(() => undefined);
+      }
       const profile = await hydrateProfile(seed);
       await configurePurchases(profile.id);
       try {
         const sub = await customerInfo();
-        setSession({ ...profile, ...sub });
+        setSession(applyTesterDemoAccess({ ...profile, ...sub }));
       } catch {
-        setSession(profile);
+        setSession(applyTesterDemoAccess(profile));
       }
     } finally {
       establishing.current = false;
@@ -111,6 +117,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       async signIn(email, password) {
         const next = await authService.signInWithPassword(email.trim(), password);
         if (next) await establish(next);
+      },
+
+      async signInTester() {
+        const next = await testerService.signIn();
+        await testerService.ensureSeeded(next);
+        await establish(next);
       },
 
       async signUp(email, password, name) {

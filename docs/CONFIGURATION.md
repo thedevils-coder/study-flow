@@ -13,5 +13,6 @@ These are account actions, not application-code gaps.
 | Resend | Supabase Auth email | Domain `auth.getstudyflow.in` |
 | PayPal / Razorpay | Not for Play digital IAP | Modular stubs only |
 | EAS Update | Production profile only | Preview/development use the embedded bundle. Publish with `eas update --channel production` when you want OTA. |
+| Tester / Demo account | Preview & development builds | Button on Welcome/Sign in. Email `tester@getstudyflow.in`. Override password with `EXPO_PUBLIC_TESTER_PASSWORD`. Apply `202609160001_tester_seed.sql`. Production builds hide this. |
 
 Android package: `com.prabhjotkaur.studyflow`

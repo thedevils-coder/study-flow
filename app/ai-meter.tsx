@@ -15,9 +15,11 @@ import {
 
 import { EmptyState } from '@/components/EmptyState';
 import { Screen } from '@/components/Screen';
+import { TestStateNotice } from '@/components/TestStateNotice';
 import { AccessError, ConfigurationError, userFacingError } from '@/lib/errors';
 import { canUseKind, hasProAccess } from '@/lib/entitlements';
 import { formatRelativeTime, kindLabel } from '@/lib/dates';
+import { TESTER_COPY, isTesterBuildEnabled, isTesterSession } from '@/lib/tester';
 import { useAuth } from '@/providers/auth-provider';
 import { useStudy } from '@/providers/study-provider';
 import { useTheme } from '@/providers/theme-provider';
@@ -161,6 +163,10 @@ export default function AiMeter() {
           <Ionicons name="information-circle-outline" size={22} color={colors.mutedText} />
         </Pressable>
       </View>
+
+      {isTesterBuildEnabled() && isTesterSession(session) ? (
+        <TestStateNotice message={TESTER_COPY.ai} />
+      ) : null}
 
       <View style={styles.hero}>
         <View style={{ flex: 1, paddingRight: 8 }}>

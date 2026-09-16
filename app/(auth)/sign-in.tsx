@@ -6,7 +6,9 @@ import { Button } from '@/components/Button';
 import { Input } from '@/components/Input';
 import { Screen } from '@/components/Screen';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { TesterAccountButton } from '@/components/TesterAccountButton';
 import { userFacingError } from '@/lib/errors';
+import { isTesterBuildEnabled } from '@/lib/tester';
 import { useAuth } from '@/providers/auth-provider';
 import { useTheme } from '@/providers/theme-provider';
 
@@ -77,6 +79,11 @@ export default function SignIn() {
       <Pressable onPress={() => router.push('/(auth)/sign-up')} style={styles.linkWrap}>
         <Text style={[styles.note, { color: colors.secondaryText }]}>Need an account? Create one</Text>
       </Pressable>
+      {isTesterBuildEnabled() ? (
+        <View style={{ marginTop: 24 }}>
+          <TesterAccountButton />
+        </View>
+      ) : null}
     </Screen>
   );
 }

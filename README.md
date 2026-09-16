@@ -65,6 +65,17 @@ Do not paste secrets into the app, git, or chat. Configure them in the provider 
 
 Until those values exist, the app shows configuration states instead of fake success.
 
+## Tester / Demo account (preview and development only)
+
+On local `npx expo start` and EAS `preview` / `development` builds, Welcome and Sign in show **Tester / Demo Account**. Production builds hide that button and do not embed the demo password.
+
+1. Apply migrations, including `supabase/migrations/202609160001_tester_seed.sql`.
+2. In Supabase Auth, allow the tester user to sign in: turn **Confirm email** off for preview, or confirm `tester@getstudyflow.in` once.
+3. Tap **Tester / Demo Account**. The app signs in through real Supabase Auth as `tester@getstudyflow.in` (password `StudyFlow-Tester-Preview` unless you override `EXPO_PUBLIC_TESTER_PASSWORD`) and seeds sample tasks, planner items, goals, focus sessions, achievements, and AI Meter history.
+4. Reset the sample data from **Profile → Settings → Reset tester sample data**.
+
+Live AI replies and Google Play purchases still use the real services. If those are not configured, the screens show a labeled test state instead of crashing.
+
 ## EAS profiles
 
 `development`, `preview`, and `production` (auto-increment) are in `eas.json`.

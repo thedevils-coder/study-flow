@@ -4,9 +4,11 @@ import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { Screen } from '@/components/Screen';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { TestStateNotice } from '@/components/TestStateNotice';
 import { displayPlanLabel } from '@/lib/entitlements';
 import { PRODUCT_IDS } from '@/lib/entitlements';
 import { userFacingError } from '@/lib/errors';
+import { TESTER_COPY, isTesterBuildEnabled, isTesterSession } from '@/lib/tester';
 import { useAuth } from '@/providers/auth-provider';
 import { useTheme } from '@/providers/theme-provider';
 import {
@@ -36,6 +38,9 @@ export default function Subscription() {
   return (
     <Screen>
       <ScreenHeader title="Subscription" back />
+      {isTesterBuildEnabled() && isTesterSession(session) ? (
+        <TestStateNotice title="Tester / Demo plan" message={TESTER_COPY.subscription} />
+      ) : null}
       <Text style={{ color: colors.secondaryText, marginBottom: 16, lineHeight: 22 }}>
         15-day free trial, then Basic or Pro. Android subscriptions use Google Play Billing through RevenueCat. Store prices are the source of truth.
       </Text>
@@ -92,7 +97,9 @@ export default function Subscription() {
 
       {!isPurchasesReady() ? (
         <Text style={[styles.note, { color: colors.warning }]}>
-          Purchases need an EAS Android build with RevenueCat public SDK keys. This screen will not fake a successful purchase.
+          {isTesterBuildEnabled() && isTesterSession(session)
+            ? 'TEST STATE: RevenueCat is not configured in this build. You can still browse this screen. Purchases will not complete until public SDK keys and Play products exist.'
+            : 'Purchases need an EAS Android build with RevenueCat public SDK keys. This screen will not fake a successful purchase.'}
         </Text>
       ) : null}
 

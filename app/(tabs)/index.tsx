@@ -10,8 +10,10 @@ import { LoadingState } from '@/components/LoadingState';
 import { Screen } from '@/components/Screen';
 import { StatCard } from '@/components/StatCard';
 import { TaskRow } from '@/components/TaskRow';
+import { TestStateNotice } from '@/components/TestStateNotice';
 import { formatDate, formatDuration, greetingFor, startOfDay } from '@/lib/dates';
 import { displayPlanLabel } from '@/lib/entitlements';
+import { TESTER_COPY, isTesterBuildEnabled, isTesterSession } from '@/lib/tester';
 import { useAuth } from '@/providers/auth-provider';
 import { useStudy } from '@/providers/study-provider';
 import { useTheme } from '@/providers/theme-provider';
@@ -43,6 +45,10 @@ export default function Home() {
           <Text style={{ fontSize: 22 }}>🎓</Text>
         </Pressable>
       </View>
+
+      {isTesterBuildEnabled() && isTesterSession(session) ? (
+        <TestStateNotice title="Tester profile" message={TESTER_COPY.home} />
+      ) : null}
 
       {error ? <ErrorState message={error} onRetry={() => void refresh()} /> : null}
       {loading && tasks.length === 0 ? <LoadingState message="Loading today..." /> : null}

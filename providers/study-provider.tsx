@@ -9,6 +9,7 @@ import { focusTimer } from '@/services/focus-timer';
 import { goalService } from '@/services/goals';
 import { notificationService, settingsService } from '@/services/settings';
 import { taskService } from '@/services/tasks';
+import { testerService } from '@/services/tester';
 import type {
   Achievement,
   AiActivity,
@@ -40,6 +41,7 @@ type StudyContextValue = {
   saveSettings: (patch: Partial<UserSettings>) => Promise<void>;
   recordCompletedFocus: (startedAt: Date, durationSeconds: number) => Promise<void>;
   reloadAi: () => Promise<void>;
+  resetTesterData: () => Promise<void>;
 };
 
 const StudyContext = createContext<StudyContextValue | null>(null);
@@ -233,6 +235,12 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
       async reloadAi() {
         if (!session) return;
         setAiActivity(await aiService.history(session.id, 30));
+      },
+
+      async resetTesterData() {
+        if (!session) throw new Error('Sign in to reset tester data.');
+        await testerService.reseed(session.id);
+        await refresh();
       },
     }),
     [tasks, goals, sessions, previousWeekSessions, achievements, aiActivity, userSettings, progress, loading, error, refresh, session],

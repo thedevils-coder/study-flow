@@ -4,7 +4,9 @@ import { Alert, StyleSheet, Text, View } from 'react-native';
 import { Card } from '@/components/Card';
 import { ListRow } from '@/components/ListRow';
 import { Screen } from '@/components/Screen';
+import { TestStateNotice } from '@/components/TestStateNotice';
 import { displayPlanLabel } from '@/lib/entitlements';
+import { TESTER_COPY, isTesterBuildEnabled, isTesterSession } from '@/lib/tester';
 import { useAuth } from '@/providers/auth-provider';
 import { useStudy } from '@/providers/study-provider';
 import { useTheme } from '@/providers/theme-provider';
@@ -18,6 +20,9 @@ export default function Profile() {
   return (
     <Screen>
       <Text style={[styles.title, { color: colors.text }]}>Profile</Text>
+      {isTesterBuildEnabled() && isTesterSession(session) ? (
+        <TestStateNotice title="Tester / Demo account" message={TESTER_COPY.home} />
+      ) : null}
       <Card style={styles.person}>
         <View style={[styles.avatar, { backgroundColor: colors.accentSoft }]}>
           <Text style={{ fontSize: 28 }}>🎓</Text>

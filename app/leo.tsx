@@ -7,9 +7,11 @@ import { Card } from '@/components/Card';
 import { Input } from '@/components/Input';
 import { Screen } from '@/components/Screen';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { TestStateNotice } from '@/components/TestStateNotice';
 import { BRAND } from '@/constants/brand';
 import { AccessError, ConfigurationError, userFacingError } from '@/lib/errors';
 import { canUseKind } from '@/lib/entitlements';
+import { TESTER_COPY, isTesterBuildEnabled, isTesterSession } from '@/lib/tester';
 import { useAuth } from '@/providers/auth-provider';
 import { useStudy } from '@/providers/study-provider';
 import { useTheme } from '@/providers/theme-provider';
@@ -62,6 +64,9 @@ export default function Leo() {
   return (
     <Screen>
       <ScreenHeader title={BRAND.assistant} back />
+      {isTesterBuildEnabled() && isTesterSession(session) ? (
+        <TestStateNotice message={TESTER_COPY.ai} />
+      ) : null}
       <View style={styles.hero}>
         <Image source={require('../assets/images/leo-robot.png')} style={styles.robot} />
         <Text style={[styles.title, { color: colors.text }]}>Hi, I’m Leo.</Text>

@@ -14,6 +14,18 @@ module.exports = ({ config }) => {
 
   return {
     ...config,
+    extra: {
+      ...(config.extra || {}),
+      testerAccountEnabled: !isProductionBuild,
+      EXPO_PUBLIC_TESTER_EMAIL: isProductionBuild
+        ? ''
+        : process.env.EXPO_PUBLIC_TESTER_EMAIL || 'tester@getstudyflow.in',
+      // Preview/development demo password only. Production binaries get an empty value.
+      // Override with EXPO_PUBLIC_TESTER_PASSWORD. This is a labeled demo credential, not a production secret.
+      EXPO_PUBLIC_TESTER_PASSWORD: isProductionBuild
+        ? ''
+        : process.env.EXPO_PUBLIC_TESTER_PASSWORD || 'StudyFlow-Tester-Preview',
+    },
     runtimeVersion: {
       policy: 'appVersion',
     },
