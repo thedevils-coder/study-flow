@@ -13,7 +13,7 @@ function ThemedTree({ children }: { children: React.ReactNode }) {
   const onPreferenceChange = useCallback(
     (next: ThemePreference) => {
       setLocalPreference(next);
-      void saveSettings({ theme: next });
+      void saveSettings({ theme: next }).catch(() => undefined);
     },
     [saveSettings],
   );

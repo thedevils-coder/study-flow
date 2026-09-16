@@ -24,174 +24,260 @@ const generators: Record<Kind, string> = {
   other: 'Help with the student’s study request. Stay practical and honest about uncertainty.',
 };
 
+type ErrorBody = {
+  error: string;
+  code: string;
+  details?: Record<string, unknown>;
+};
+
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
     headers: { 'Content-Type': 'application/json', ...cors },
   });
 
+const fail = (status: number, body: ErrorBody) => json(body, status);
+
+function isMissingRelation(message: string) {
+  return /schema cache|does not exist|PGRST205|42P01/i.test(message);
+}
+
+function dbFailure(table: string, error: { message?: string; code?: string; details?: string } | null, fallback: string) {
+  const message = error?.message ?? fallback;
+  if (isMissingRelation(message)) {
+    return fail(503, {
+      error: `The ${table} table is missing in this Supabase project. Apply supabase/migrations/202609160002_align_existing_project.sql, then retry.`,
+      code: 'missing_relation',
+      details: { table, postgres: error?.code ?? null, message },
+    });
+  }
+  return fail(500, {
+    error: fallback,
+    code: 'database_error',
+    details: { table, postgres: error?.code ?? null, message },
+  });
+}
+
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') {
     return new Response('ok', { headers: cors });
   }
 
-  const supabaseUrl = Deno.env.get('SUPABASE_URL');
-  const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
-  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
-  if (!supabaseUrl || !anonKey || !serviceKey) {
-    return json({ error: 'Server is not configured.' }, 500);
-  }
+    if (!supabaseUrl || !anonKey || !serviceKey) {
+      return fail(500, {
+        error: 'The ai-generate function is missing SUPABASE_URL, SUPABASE_ANON_KEY, or SUPABASE_SERVICE_ROLE_KEY.',
+        code: 'server_not_configured',
+        details: {
+          hasUrl: Boolean(supabaseUrl),
+          hasAnonKey: Boolean(anonKey),
+          hasServiceRoleKey: Boolean(serviceKey),
+        },
+      });
+    }
 
-  const userClient = createClient(supabaseUrl, anonKey, {
-    global: { headers: { Authorization: request.headers.get('Authorization') ?? '' } },
-  });
-  const admin = createClient(supabaseUrl, serviceKey);
+    const userClient = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: request.headers.get('Authorization') ?? '' } },
+    });
+    const admin = createClient(supabaseUrl, serviceKey);
 
-  const { data: userData, error: userError } = await userClient.auth.getUser();
-  if (userError || !userData.user) {
-    return json({ error: 'Sign in required.' }, 401);
-  }
+    const { data: userData, error: userError } = await userClient.auth.getUser();
+    if (userError || !userData.user) {
+      return fail(401, {
+        error: 'Sign in required.',
+        code: 'unauthenticated',
+        details: { message: userError?.message ?? 'No user on this request.' },
+      });
+    }
 
-  const userId = userData.user.id;
-  const payload = await request.json().catch(() => ({}));
-  const kind = String(payload.kind || 'other') as Kind;
-  const prompt = String(payload.prompt || '').trim();
+    const userId = userData.user.id;
+    const payload = await request.json().catch(() => ({}));
+    const kind = String(payload.kind || 'other') as Kind;
+    const prompt = String(payload.prompt || '').trim();
 
-  if (!kinds.includes(kind) || prompt.length < 1 || prompt.length > 8000) {
-    return json({ error: 'Invalid request.' }, 400);
-  }
+    if (!kinds.includes(kind) || prompt.length < 1 || prompt.length > 8000) {
+      return fail(400, { error: 'Invalid request.', code: 'invalid_request' });
+    }
 
-  const { data: subscription } = await admin
-    .from('subscriptions')
-    .select('state, entitlement_id, entitlement_ids, product_id, expires_at')
-    .eq('user_id', userId)
-    .maybeSingle();
+    const { data: subscription, error: subscriptionError } = await admin
+      .from('subscriptions')
+      .select('state, entitlement_id, entitlement_ids, product_id, expires_at')
+      .eq('user_id', userId)
+      .maybeSingle();
 
-  const entitlementIds = [
-    ...(subscription?.entitlement_ids ?? []),
-    subscription?.entitlement_id,
-    subscription?.product_id,
-  ]
-    .filter(Boolean)
-    .map((value: string) => String(value).toLowerCase());
+    if (subscriptionError) {
+      return dbFailure('subscriptions', subscriptionError, 'Unable to read subscription state.');
+    }
 
-  const active =
-    Boolean(subscription) &&
-    ['active', 'cancelled', 'ending', 'pending'].includes(String(subscription?.state)) &&
-    (!subscription?.expires_at || new Date(String(subscription.expires_at)).getTime() > Date.now());
+    const entitlementIds = [
+      ...(subscription?.entitlement_ids ?? []),
+      subscription?.entitlement_id,
+      subscription?.product_id,
+    ]
+      .filter(Boolean)
+      .map((value: string) => String(value).toLowerCase());
 
-  const isPro = active && entitlementIds.some((value) => value.includes('pro'));
-  const isBasic =
-    active &&
-    (isPro ||
-      entitlementIds.some((value) =>
-        ['basic', 'premium', 'monthly', 'yearly'].some((part) => value.includes(part)),
-      ));
-  const trialActive = active && entitlementIds.some((value) => value.includes('trial'));
-  const tier = isPro ? 'pro' : isBasic || trialActive || active ? 'basic' : 'none';
+    const active =
+      Boolean(subscription) &&
+      ['active', 'cancelled', 'ending', 'pending'].includes(String(subscription?.state)) &&
+      (!subscription?.expires_at || new Date(String(subscription.expires_at)).getTime() > Date.now());
 
-  if (tier === 'none') {
-    return json({ error: 'Start a free trial or choose Basic to use AI Meter.' }, 402);
-  }
+    const isPro = active && entitlementIds.some((value) => value.includes('pro'));
+    const isBasic =
+      active &&
+      (isPro ||
+        entitlementIds.some((value) =>
+          ['basic', 'premium', 'monthly', 'yearly'].some((part) => value.includes(part)),
+        ));
+    const trialActive = active && entitlementIds.some((value) => value.includes('trial'));
+    const tier = isPro ? 'pro' : isBasic || trialActive || active ? 'basic' : 'none';
 
-  if (PRO_KINDS.has(kind) && tier !== 'pro' && !trialActive) {
-    return json({ error: 'This tool is included with Study Flow Pro and the free trial.' }, 402);
-  }
+    if (tier === 'none') {
+      return fail(402, {
+        error: 'Start a free trial or choose Basic to use AI Meter.',
+        code: 'payment_required',
+        details: { hasSubscriptionRow: Boolean(subscription), state: subscription?.state ?? null },
+      });
+    }
 
-  if (!BASIC_KINDS.has(kind) && !PRO_KINDS.has(kind)) {
-    return json({ error: 'Unsupported generation type.' }, 400);
-  }
+    if (PRO_KINDS.has(kind) && tier !== 'pro' && !trialActive) {
+      return fail(402, {
+        error: 'This tool is included with Study Flow Pro and the free trial.',
+        code: 'payment_required',
+        details: { kind, tier },
+      });
+    }
 
-  const limit = tier === 'pro' ? 80 : 10;
-  const start = new Date();
-  start.setUTCHours(0, 0, 0, 0);
+    if (!BASIC_KINDS.has(kind) && !PRO_KINDS.has(kind)) {
+      return fail(400, { error: 'Unsupported generation type.', code: 'invalid_request' });
+    }
 
-  const { count, error: countError } = await admin
-    .from('ai_generations')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .gte('created_at', start.toISOString());
+    const limit = tier === 'pro' ? 80 : 10;
+    const start = new Date();
+    start.setUTCHours(0, 0, 0, 0);
 
-  if (countError) return json({ error: 'Unable to check usage.' }, 500);
-  if ((count ?? 0) >= limit) {
-    return json({ error: 'You have reached today’s AI limit for your plan.', usage: { remaining: 0, limit } }, 429);
-  }
+    const { count, error: countError } = await admin
+      .from('ai_generations')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .gte('created_at', start.toISOString());
 
-  const apiKey = Deno.env.get('AI_API_KEY');
-  const apiUrl = Deno.env.get('AI_API_URL') ?? 'https://api.openai.com/v1/chat/completions';
-  const model = Deno.env.get('AI_MODEL') ?? 'gpt-4o-mini';
+    if (countError) return dbFailure('ai_generations', countError, 'Unable to check usage.');
+    if ((count ?? 0) >= limit) {
+      return json(
+        {
+          error: 'You have reached today’s AI limit for your plan.',
+          code: 'rate_limited',
+          usage: { remaining: 0, limit },
+        },
+        429,
+      );
+    }
 
-  if (!apiKey) {
-    return json({
-      error: 'AI generation is not configured on the server yet. Study Flow never stores AI API keys in the app.',
-    }, 503);
-  }
+    const apiKey = Deno.env.get('AI_API_KEY');
+    const apiUrl = Deno.env.get('AI_API_URL') ?? 'https://api.openai.com/v1/chat/completions';
+    const model = Deno.env.get('AI_MODEL') ?? 'gpt-4o-mini';
 
-  const context = payload.context && typeof payload.context === 'object' ? payload.context : null;
-  const safeContext = context
-    ? JSON.stringify({
-        tasks: Array.isArray(context.tasks) ? context.tasks.slice(0, 20) : [],
-        goals: Array.isArray(context.goals) ? context.goals.slice(0, 10) : [],
-        focusMinutesThisWeek: Number(context.focusMinutesThisWeek) || 0,
+    if (!apiKey) {
+      return fail(503, {
+        error:
+          'AI generation is not configured on the server yet. Set the AI_API_KEY secret on the ai-generate Edge Function. Study Flow never stores AI API keys in the app.',
+        code: 'ai_not_configured',
+        details: { hasApiUrl: Boolean(Deno.env.get('AI_API_URL')), model },
+      });
+    }
+
+    const context = payload.context && typeof payload.context === 'object' ? payload.context : null;
+    const safeContext = context
+      ? JSON.stringify({
+          tasks: Array.isArray(context.tasks) ? context.tasks.slice(0, 20) : [],
+          goals: Array.isArray(context.goals) ? context.goals.slice(0, 10) : [],
+          focusMinutesThisWeek: Number(context.focusMinutesThisWeek) || 0,
+        })
+      : '';
+
+    const completion = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: tier === 'pro' ? 2500 : 800,
+        messages: [
+          {
+            role: 'system',
+            content: [
+              'You are Leo, Study Flow’s personal AI study assistant.',
+              'Be accurate, calm and practical. Do not invent the user’s tasks, goals or study time.',
+              'Never mention API keys, tokens, payments or passwords.',
+              generators[kind],
+            ].join(' '),
+          },
+          {
+            role: 'user',
+            content: `${prompt}${safeContext ? `\n\nUser study context:\n${safeContext}` : ''}`,
+          },
+        ],
+      }),
+    });
+
+    if (!completion.ok) {
+      let providerMessage = '';
+      try {
+        const errBody = await completion.json();
+        providerMessage = String(errBody?.error?.message ?? errBody?.error ?? '').slice(0, 240);
+      } catch {
+        providerMessage = '';
+      }
+      providerMessage = providerMessage.replace(/sk-[A-Za-z0-9_-]+/g, '[redacted]');
+      return fail(502, {
+        error: 'The AI provider could not complete that request.',
+        code: 'provider_error',
+        details: {
+          httpStatus: completion.status,
+          message: providerMessage || undefined,
+          model,
+        },
+      });
+    }
+
+    const body = await completion.json();
+    const text = String(body?.choices?.[0]?.message?.content ?? '').trim();
+    const tokens = Number(body?.usage?.total_tokens) || null;
+
+    const { data: stored, error: storeError } = await admin
+      .from('ai_generations')
+      .insert({
+        user_id: userId,
+        kind,
+        prompt,
+        result_text: text,
+        result_meta: { tier, feature: kind === 'leo' ? 'Leo' : kind === 'schedule' ? 'schedule' : 'ai-meter' },
+        model,
+        tokens_used: tokens,
       })
-    : '';
+      .select('id')
+      .single();
 
-  const completion = await fetch(apiUrl, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model,
-      max_tokens: tier === 'pro' ? 2500 : 800,
-      messages: [
-        {
-          role: 'system',
-          content: [
-            'You are Leo, Study Flow’s personal AI study assistant.',
-            'Be accurate, calm and practical. Do not invent the user’s tasks, goals or study time.',
-            'Never mention API keys, tokens, payments or passwords.',
-            generators[kind],
-          ].join(' '),
-        },
-        {
-          role: 'user',
-          content: `${prompt}${safeContext ? `\n\nUser study context:\n${safeContext}` : ''}`,
-        },
-      ],
-    }),
-  });
+    if (storeError) return dbFailure('ai_generations', storeError, 'Unable to store generation.');
 
-  if (!completion.ok) {
-    return json({ error: 'The AI provider could not complete that request.' }, 502);
-  }
-
-  const body = await completion.json();
-  const text = String(body?.choices?.[0]?.message?.content ?? '').trim();
-  const tokens = Number(body?.usage?.total_tokens) || null;
-
-  const { data: stored, error: storeError } = await admin
-    .from('ai_generations')
-    .insert({
-      user_id: userId,
+    return json({
+      id: stored.id,
+      text,
       kind,
-      prompt,
-      result_text: text,
-      result_meta: { tier, feature: kind === 'leo' ? 'Leo' : kind === 'schedule' ? 'schedule' : 'ai-meter' },
-      model,
-      tokens_used: tokens,
-    })
-    .select('id')
-    .single();
-
-  if (storeError) return json({ error: 'Unable to store generation.' }, 500);
-
-  return json({
-    id: stored.id,
-    text,
-    kind,
-    usage: { remaining: Math.max(0, limit - (count ?? 0) - 1), limit },
-  });
+      usage: { remaining: Math.max(0, limit - (count ?? 0) - 1), limit },
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unexpected Edge Function error.';
+    return fail(500, {
+      error: message.replace(/sk-[A-Za-z0-9_-]+/g, '[redacted]'),
+      code: 'unhandled_error',
+    });
+  }
 });

@@ -1,6 +1,7 @@
+import { ConfigurationError, isMissingRelationError } from '@/lib/errors';
+import { describeMissingRelation } from '@/lib/functions-error';
 import { getSupabase, isSupabaseConfigured } from '@/lib/supabase';
 import { clampGoalProgress, validateGoalInput } from '@/lib/validation';
-import { isMissingRelationError } from '@/lib/errors';
 import type { StudyGoal } from '@/types';
 
 type GoalRow = {
@@ -30,6 +31,13 @@ const mapGoal = (row: GoalRow): StudyGoal => ({
   updatedAt: row.updated_at,
 });
 
+function throwGoalError(error: unknown, action: string): never {
+  if (isMissingRelationError(error)) {
+    throw new ConfigurationError(describeMissingRelation('study_goals'));
+  }
+  throw error instanceof Error ? error : new Error(`Unable to ${action} the goal.`);
+}
+
 export const goalService = {
   async list(userId: string) {
     if (!isSupabaseConfigured) return [] as StudyGoal[];
@@ -39,10 +47,7 @@ export const goalService = {
       .eq('user_id', userId)
       .order('due_at', { ascending: true, nullsFirst: false })
       .order('created_at', { ascending: false });
-    if (error) {
-      if (isMissingRelationError(error)) return [] as StudyGoal[];
-      throw error;
-    }
+    if (error) throwGoalError(error, 'load');
     return (data as GoalRow[]).map(mapGoal);
   },
 
@@ -69,7 +74,7 @@ export const goalService = {
       })
       .select(select)
       .single();
-    if (error) throw error;
+    if (error) throwGoalError(error, 'save');
     return mapGoal(data as GoalRow);
   },
 
@@ -95,13 +100,13 @@ export const goalService = {
       .eq('id', input.id)
       .select(select)
       .single();
-    if (error) throw error;
+    if (error) throwGoalError(error, 'update');
     return mapGoal(data as GoalRow);
   },
 
   async remove(id: string) {
     if (!isSupabaseConfigured) throw new Error('Supabase is not configured.');
     const { error } = await getSupabase().from('study_goals').delete().eq('id', id);
-    if (error) throw error;
+    if (error) throwGoalError(error, 'delete');
   },
 };

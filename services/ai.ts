@@ -1,5 +1,6 @@
-import { AccessError, ConfigurationError, isMissingRelationError } from '@/lib/errors';
 import { canUseKind, getTier } from '@/lib/entitlements';
+import { AccessError, ConfigurationError, isMissingRelationError } from '@/lib/errors';
+import { parseFunctionsInvokeFailure } from '@/lib/functions-error';
 import { getSupabase, isSupabaseConfigured } from '@/lib/supabase';
 import { parseSchedule } from '@/lib/schedule';
 import type { AiActivity, AiKind, UserSession } from '@/types';
@@ -105,28 +106,31 @@ export const aiService = {
     });
 
     if (error) {
-      const status = (error as { context?: { status?: number } }).context?.status;
-      if (status === 503) {
+      const parsed = await parseFunctionsInvokeFailure({ error, data });
+      if (parsed.httpStatus === 503 || parsed.code === 'ai_not_configured' || parsed.code === 'missing_relation') {
+        throw new ConfigurationError(parsed.message);
+      }
+      if (parsed.httpStatus === 404 || parsed.code === 'NOT_FOUND' || parsed.code === 'function_not_found') {
         throw new ConfigurationError(
-          'AI generation is not configured on the server yet. Study Flow never stores AI API keys in the app.',
+          'The ai-generate Edge Function is not deployed on this Supabase project. Deploy supabase/functions/ai-generate and set the AI_API_KEY secret. Study Flow never stores AI API keys in the app.',
         );
       }
-      if (status === 402) {
-        throw new AccessError(
-          typeof data === 'object' && data && 'error' in data
-            ? String((data as { error: string }).error)
-            : 'Upgrade to unlock this AI tool.',
-        );
+      if (parsed.httpStatus === 402 || parsed.code === 'payment_required') {
+        throw new AccessError(parsed.payload.error || parsed.message);
       }
-      throw new Error(
-        typeof data === 'object' && data && 'error' in data
-          ? String((data as { error: string }).error)
-          : error.message || 'Unable to generate a response.',
-      );
+      throw new Error(parsed.message);
     }
 
-    const payload = data as GenerateResult & { error?: string };
-    if (payload.error) throw new Error(payload.error);
+    const payload = data as GenerateResult & { error?: string; code?: string };
+    if (payload.error) {
+      if (payload.code === 'ai_not_configured' || payload.code === 'missing_relation') {
+        throw new ConfigurationError(payload.error);
+      }
+      throw new Error(payload.error);
+    }
+    if (!payload.text) {
+      throw new Error('The AI function returned an empty response.');
+    }
     return payload;
   },
 

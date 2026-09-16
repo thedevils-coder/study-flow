@@ -1,4 +1,5 @@
 import { getSupabase, isSupabaseConfigured } from '@/lib/supabase';
+import { isMissingColumnError, isMissingRelationError } from '@/lib/errors';
 import type { UserSession } from '@/types';
 
 type ProfileRow = {
@@ -19,23 +20,47 @@ export async function hydrateProfile(session: UserSession): Promise<UserSession>
   if (!isSupabaseConfigured) return session;
 
   const client = getSupabase();
-  const [{ data: profile }, { data: subscription }] = await Promise.all([
-    client.from('profiles').select('display_name, role').eq('id', session.id).maybeSingle(),
-    client
-      .from('subscriptions')
-      .select('state, entitlement_id, entitlement_ids, product_id, expires_at, will_renew')
-      .eq('user_id', session.id)
-      .maybeSingle(),
-  ]);
+  const [{ data: profileData, error: profileError }, { data: subscription, error: subscriptionError }] =
+    await Promise.all([
+      client.from('profiles').select('display_name, role').eq('id', session.id).maybeSingle(),
+      client
+        .from('subscriptions')
+        .select('state, entitlement_id, entitlement_ids, product_id, expires_at, will_renew')
+        .eq('user_id', session.id)
+        .maybeSingle(),
+    ]);
+
+  if (profileError && !isMissingRelationError(profileError) && !isMissingColumnError(profileError)) {
+    throw profileError;
+  }
+
+  let profileRow = (profileData as ProfileRow | null) ?? null;
+  if (!profileRow && !profileError) {
+    const inserted = await client
+      .from('profiles')
+      .insert({ id: session.id, display_name: session.name || 'Student' })
+      .select('display_name, role')
+      .maybeSingle();
+    if (!inserted.error) {
+      profileRow = (inserted.data as ProfileRow | null) ?? {
+        display_name: session.name || 'Student',
+        role: 'user',
+      };
+    }
+  }
 
   const next: UserSession = { ...session };
-  const profileRow = profile as ProfileRow | null;
-  const subscriptionRow = subscription as SubscriptionRow | null;
 
   if (profileRow) {
     next.name = profileRow.display_name || session.name;
     next.role = profileRow.role === 'admin' ? 'admin' : 'user';
   }
+
+  if (subscriptionError && !isMissingRelationError(subscriptionError) && !isMissingColumnError(subscriptionError)) {
+    throw subscriptionError;
+  }
+
+  const subscriptionRow = subscription as SubscriptionRow | null;
 
   if (subscriptionRow) {
     next.subscriptionStatus = subscriptionRow.state ?? 'none';
@@ -50,9 +75,7 @@ export async function hydrateProfile(session: UserSession): Promise<UserSession>
     const entitlements = next.entitlements.map((item) => item.toLowerCase());
     if (entitlements.some((item) => item.includes('pro'))) next.plan = 'pro';
     else if (entitlements.some((item) => item.includes('trial'))) next.plan = 'trial';
-    else if (
-      entitlements.some((item) => item.includes('basic') || item.includes('premium'))
-    ) {
+    else if (entitlements.some((item) => item.includes('basic') || item.includes('premium'))) {
       next.plan = 'basic';
     }
   }

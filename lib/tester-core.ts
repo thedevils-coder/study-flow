@@ -4,7 +4,7 @@ import type { UserSession } from '@/types';
 
 export const TESTER_EMAIL = 'tester@getstudyflow.in';
 export const TESTER_DISPLAY_NAME = 'Study Flow Tester';
-export const TESTER_SEED_VERSION = 1;
+export const TESTER_SEED_VERSION = 2;
 export const TESTER_PRODUCT_ID = 'tester_demo_trial';
 
 export function extraFlag(value: unknown): boolean | undefined {

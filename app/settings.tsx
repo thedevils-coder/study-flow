@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { Alert, Linking, StyleSheet, Text, View } from 'react-native';
+import { Alert, Linking, Platform, StyleSheet, Text, View } from 'react-native';
 
 import { Card } from '@/components/Card';
 import { ListRow } from '@/components/ListRow';
@@ -7,6 +7,7 @@ import { Screen } from '@/components/Screen';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { BRAND } from '@/constants/brand';
 import { userFacingError } from '@/lib/errors';
+import { isExpoGo } from '@/lib/runtime';
 import { isTesterBuildEnabled, isTesterSession } from '@/lib/tester';
 import { useAuth } from '@/providers/auth-provider';
 import { useStudy } from '@/providers/study-provider';
@@ -20,14 +21,18 @@ export default function Settings() {
   const { preference, setPreference, colors } = useTheme();
 
   const toggle = async (key: 'notificationsEnabled' | 'studyReminders' | 'taskReminders' | 'goalReminders', value: boolean) => {
-    if (value && key === 'notificationsEnabled') {
-      const permission = await notificationService.requestPermission();
-      if (!permission.granted) {
-        Alert.alert('Notifications', permission.message);
-        return;
+    try {
+      if (value) {
+        const permission = await notificationService.requestPermission();
+        if (key === 'notificationsEnabled' && !permission.granted) {
+          Alert.alert('Notifications', permission.message);
+          return;
+        }
       }
+      await saveSettings({ [key]: value });
+    } catch (error) {
+      Alert.alert('Settings', userFacingError(error, 'Unable to save that setting.'));
     }
-    await saveSettings({ [key]: value });
   };
 
   return (
@@ -49,6 +54,17 @@ export default function Settings() {
       </Card>
 
       <Text style={[styles.section, { color: colors.secondaryText }]}>Notifications / reminders</Text>
+      {Platform.OS !== 'web' ? (
+        <Text style={[styles.hint, { color: colors.mutedText }]}>
+          {isExpoGo()
+            ? 'Expo Go schedules local reminders only. Remote push requires an EAS development or preview build (SDK 53+). Off cancels scheduled local reminders.'
+            : 'On schedules local study, task, and goal reminders. Off cancels them. This setting is saved to your account.'}
+        </Text>
+      ) : (
+        <Text style={[styles.hint, { color: colors.mutedText }]}>
+          Reminder delivery is available in the Android app. The On/Off choice still saves to your account.
+        </Text>
+      )}
       <Card padded={false}>
         <View style={{ paddingHorizontal: 16 }}>
           <ListRow
@@ -159,4 +175,5 @@ export default function Settings() {
 
 const styles = StyleSheet.create({
   section: { fontWeight: '800', marginBottom: 8, marginTop: 8 },
+  hint: { marginBottom: 8, lineHeight: 18, fontSize: 13 },
 });

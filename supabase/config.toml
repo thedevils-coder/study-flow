@@ -1,0 +1,13 @@
+project_id = "bcrvslngdgtxhnvzntjy"
+
+[functions.ai-generate]
+verify_jwt = true
+
+[functions.delete-account]
+verify_jwt = true
+
+[functions.admin-stats]
+verify_jwt = true
+
+[functions.revenuecat-webhook]
+verify_jwt = false
