@@ -142,3 +142,25 @@ describe('tester sample data', () => {
     expect(summary.weekSeconds).toBeGreaterThan(0);
   });
 });
+
+describe('supabase URL and tester errors', () => {
+  it('strips a REST suffix from the project URL', async () => {
+    const { normalizeSupabaseUrl } = await import('@/lib/supabase-url');
+    expect(normalizeSupabaseUrl('https://example.supabase.co/rest/v1/')).toBe('https://example.supabase.co');
+    expect(normalizeSupabaseUrl('https://example.supabase.co/')).toBe('https://example.supabase.co');
+  });
+
+  it('surfaces PostgREST objects instead of a generic tester fallback', async () => {
+    const { userFacingError, isMissingRelationError } = await import('@/lib/errors');
+    const pathError = { code: 'PGRST125', message: 'Invalid path specified in request URL' };
+    expect(userFacingError(pathError, 'Unable to open the tester profile.')).toBe(
+      'Invalid path specified in request URL — PGRST125',
+    );
+    expect(
+      isMissingRelationError({
+        code: '42P01',
+        message: 'relation "public.study_goals" does not exist',
+      }),
+    ).toBe(true);
+  });
+});

@@ -33,7 +33,7 @@ export function isTesterBuildEnabled(input?: {
 }) {
   return isTesterBuildEnabledCore({
     testerAccountEnabled: input?.testerAccountEnabled ?? extraFlag(extra.testerAccountEnabled),
-    isDev: input?.isDev,
+    isDev: input?.isDev ?? (typeof __DEV__ !== 'undefined' ? __DEV__ : undefined),
   });
 }
 

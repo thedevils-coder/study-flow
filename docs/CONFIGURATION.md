@@ -4,7 +4,7 @@ These are account actions, not application-code gaps.
 
 | Item | Where to set it | Notes |
 | --- | --- | --- |
-| Supabase URL + publishable key | EAS secrets / local `.env` | Public client values only |
+| Supabase URL + publishable key | EAS secrets / local `.env` | Public client values only. URL is the project origin (`https://<ref>.supabase.co`), not `/rest/v1/`. |
 | Google OAuth | Supabase Auth + Google Cloud | Callback is the Supabase URL; app scheme is `studyflow://` |
 | AI_API_KEY | Supabase Edge Function secrets | Never `EXPO_PUBLIC_` |
 | RevenueCat public SDK keys | EAS secrets / `.env` | Test Store can stay; production products are separate |

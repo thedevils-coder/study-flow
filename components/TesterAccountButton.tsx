@@ -21,7 +21,13 @@ export function TesterAccountButton() {
       await signInTester();
       router.replace('/');
     } catch (error) {
-      Alert.alert('Tester / Demo Account', userFacingError(error, 'Unable to open the tester profile.'));
+      Alert.alert(
+        'Tester / Demo Account',
+        userFacingError(error, 'Unable to open the tester profile.'),
+      );
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('Tester / Demo Account failed', error);
+      }
     } finally {
       setLoading(false);
     }

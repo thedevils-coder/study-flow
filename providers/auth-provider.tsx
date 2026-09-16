@@ -54,7 +54,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await testerService.ensureSeeded(seed).catch(() => undefined);
       }
       const profile = await hydrateProfile(seed);
-      await configurePurchases(profile.id);
+      try {
+        await configurePurchases(profile.id);
+      } catch {
+        // Purchases are optional in Expo Go / unconfigured builds.
+      }
       try {
         const sub = await customerInfo();
         setSession(applyTesterDemoAccess({ ...profile, ...sub }));
@@ -121,7 +125,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       async signInTester() {
         const next = await testerService.signIn();
-        await testerService.ensureSeeded(next);
+        try {
+          await testerService.ensureSeeded(next);
+        } catch (error) {
+          await establish(next);
+          throw error;
+        }
         await establish(next);
       },
 

@@ -1,4 +1,4 @@
-import { AccessError, ConfigurationError } from '@/lib/errors';
+import { AccessError, ConfigurationError, isMissingRelationError } from '@/lib/errors';
 import { canUseKind, getTier } from '@/lib/entitlements';
 import { getSupabase, isSupabaseConfigured } from '@/lib/supabase';
 import { parseSchedule } from '@/lib/schedule';
@@ -53,7 +53,10 @@ export const aiService = {
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(limit);
-    if (error) throw error;
+    if (error) {
+      if (isMissingRelationError(error)) return [] as AiActivity[];
+      throw error;
+    }
     return ((data ?? []) as GenerationRow[]).map(mapActivity);
   },
 

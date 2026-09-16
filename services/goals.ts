@@ -1,5 +1,6 @@
 import { getSupabase, isSupabaseConfigured } from '@/lib/supabase';
 import { clampGoalProgress, validateGoalInput } from '@/lib/validation';
+import { isMissingRelationError } from '@/lib/errors';
 import type { StudyGoal } from '@/types';
 
 type GoalRow = {
@@ -38,7 +39,10 @@ export const goalService = {
       .eq('user_id', userId)
       .order('due_at', { ascending: true, nullsFirst: false })
       .order('created_at', { ascending: false });
-    if (error) throw error;
+    if (error) {
+      if (isMissingRelationError(error)) return [] as StudyGoal[];
+      throw error;
+    }
     return (data as GoalRow[]).map(mapGoal);
   },
 

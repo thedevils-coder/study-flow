@@ -56,8 +56,13 @@ export async function configurePurchases(appUserId: string) {
   const apiKey =
     Platform.OS === 'ios' ? publicConfig.revenueCatIosKey : publicConfig.revenueCatAndroidKey;
   if (!apiKey) return;
-  Purchases.configure({ apiKey, appUserID: appUserId });
-  configured = true;
+  try {
+    Purchases.configure({ apiKey, appUserID: appUserId });
+    configured = true;
+  } catch {
+    // Expo Go and other clients without the native Purchases module still boot.
+    configured = false;
+  }
 }
 
 export const isPurchasesReady = () => configured;

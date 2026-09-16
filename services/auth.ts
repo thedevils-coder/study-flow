@@ -77,7 +77,7 @@ export const authService = {
     });
     if (error) throw error;
     return {
-      session: data.user ? toSession(data.user) : null,
+      session: data.session?.user ? toSession(data.session.user) : null,
       needsVerification: !data.session,
     };
   },
