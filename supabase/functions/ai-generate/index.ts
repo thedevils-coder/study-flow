@@ -8,6 +8,7 @@ import {
   generateGeminiImage,
   generateOpenAiImage,
   ProviderError,
+  resolveGeminiChatModel,
   selectResearchProvider,
   selectTextChatProvider,
 } from './providers.ts';
@@ -268,7 +269,7 @@ Deno.serve(async (request) => {
   const fastModel = Deno.env.get('AI_FAST_MODEL') ?? Deno.env.get('AI_MODEL') ?? 'gpt-4o-mini';
   const deepModel = Deno.env.get('AI_MODEL') ?? fastModel;
   const geminiKey = configuredSecret(Deno.env.get('GEMINI_API_KEY'));
-  const geminiModel = Deno.env.get('GEMINI_MODEL') ?? 'gemini-2.0-flash';
+  const geminiModel = resolveGeminiChatModel(Deno.env.get('GEMINI_MODEL'));
   const imageKey = configuredSecret(Deno.env.get('IMAGE_API_KEY')) ?? openaiKey;
   const textChat = selectTextChatProvider({ openaiKey, geminiKey });
   const research = selectResearchProvider({ geminiKey });
@@ -407,7 +408,7 @@ Deno.serve(async (request) => {
           mime = generated.mime;
         } else {
           provider = 'gemini-image';
-          model = Deno.env.get('GEMINI_IMAGE_MODEL') ?? 'gemini-2.0-flash-preview-image-generation';
+          model = Deno.env.get('GEMINI_IMAGE_MODEL') ?? 'gemini-2.5-flash-image';
           const generated = await generateGeminiImage({
             apiKey: geminiKey as string,
             model,

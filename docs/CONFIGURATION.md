@@ -11,7 +11,7 @@ These are account actions, not application-code gaps.
 | AI_MODEL | Edge Function secret (optional) | Deeper model. Default `gpt-4o-mini` |
 | AI_FAST_MODEL | Edge Function secret (optional) | Fast model for simple questions |
 | GEMINI_API_KEY | Edge Function secret | Sufficient for normal Leo chat and Google Search research. Also used for file analysis and Gemini image fallback. Never `EXPO_PUBLIC_` |
-| GEMINI_MODEL | Edge Function secret (optional) | Default `gemini-2.0-flash` |
+| GEMINI_MODEL | Edge Function secret (optional) | Default `gemini-2.5-flash`. Do not use shut-down `gemini-2.0-flash`. |
 | GEMINI_IMAGE_MODEL | Edge Function secret (optional) | Used only if `IMAGE_API_KEY` is not set |
 | IMAGE_API_KEY | Edge Function secret (optional) | Image generation. Falls back to `AI_API_KEY` |
 | IMAGE_API_URL | Edge Function secret (optional) | Defaults to OpenAI images API |

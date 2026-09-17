@@ -1,3 +1,5 @@
+import { formatGeminiProviderError } from '@/lib/ai-provider';
+
 export type StructuredServiceError = {
   error?: string;
   message?: string;
@@ -40,11 +42,19 @@ export async function parseFunctionsInvokeFailure(input: { error: unknown; data:
     'Unable to generate a response.'
   ).replace(/\s+/g, ' ').trim();
 
-  if (httpStatus === 404 || payload.code === 'NOT_FOUND' || /requested function was not found/i.test(message)) {
+  if (httpStatus === 404 || /requested function was not found/i.test(message)) {
     message =
       'The ai-generate Edge Function is not deployed. Deploy supabase/functions/ai-generate and set the required server secrets.';
-  } else if (/non[- ]?2xx status code/i.test(message) && (payload.error || payload.message)) {
-    message = String(payload.error || payload.message);
+  } else {
+    const details = asRecord(payload.details);
+    if (details && (/Gemini could not complete|provider could not complete|Google\/Gemini research/i.test(message) || details.message)) {
+      message = formatGeminiProviderError(message, {
+        httpStatus: typeof details.httpStatus === 'number' ? details.httpStatus : undefined,
+        message: typeof details.message === 'string' ? details.message : undefined,
+      });
+    } else if (/non[- ]?2xx status code/i.test(message) && (payload.error || payload.message)) {
+      message = String(payload.error || payload.message);
+    }
   }
 
   if (httpStatus && !/HTTP \d{3}/.test(message)) {

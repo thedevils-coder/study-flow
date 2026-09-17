@@ -6,6 +6,15 @@ export function configuredSecret(value: string | null | undefined) {
   return trimmed ? trimmed : undefined;
 }
 
+export const DEFAULT_GEMINI_CHAT_MODEL = 'gemini-2.5-flash';
+const SHUT_DOWN_GEMINI_CHAT_MODELS = ['gemini-2.0-flash', 'gemini-2.0-flash-001', 'gemini-2.0-flash-lite'];
+
+export function resolveGeminiChatModel(configured?: string | null) {
+  const model = configuredSecret(configured) ?? DEFAULT_GEMINI_CHAT_MODEL;
+  if (SHUT_DOWN_GEMINI_CHAT_MODELS.includes(model)) return DEFAULT_GEMINI_CHAT_MODEL;
+  return model;
+}
+
 export function selectTextChatProvider(input: { openaiKey?: string | null; geminiKey?: string | null }) {
   if (configuredSecret(input.openaiKey)) return { provider: 'openai' as const, withSearch: false as const };
   if (configuredSecret(input.geminiKey)) return { provider: 'gemini' as const, withSearch: false as const };
@@ -31,7 +40,33 @@ export class ProviderError extends Error {
 }
 
 function redact(text: string) {
-  return text.replace(/sk-[A-Za-z0-9_-]+/g, '[redacted]').replace(/AIza[A-Za-z0-9_-]+/g, '[redacted]').slice(0, 240);
+  return text
+    .replace(/sk-[A-Za-z0-9_-]+/g, '[redacted]')
+    .replace(/AIza[A-Za-z0-9_-]+/g, '[redacted]')
+    .replace(/key=[^&\s]+/gi, 'key=[redacted]')
+    .slice(0, 240);
+}
+
+function summarizeGeminiError(raw: string) {
+  const redacted = redact(raw).trim();
+  if (!redacted) return '';
+  try {
+    const parsed = JSON.parse(redacted) as { error?: { status?: string; message?: string } };
+    const err = parsed.error;
+    if (err?.message) return `${err.status ? `${err.status}: ` : ''}${err.message}`.slice(0, 220);
+  } catch {
+    // compact raw snippet
+  }
+  return redacted.replace(/\s+/g, ' ').slice(0, 220);
+}
+
+function formatGeminiProviderError(generic: string, httpStatus: number, raw: string) {
+  const summary = summarizeGeminiError(raw);
+  return [generic, `HTTP ${httpStatus}`, summary].filter(Boolean).join(' — ');
+}
+
+function isGeminiModelNotFound(raw: string) {
+  return /NOT_FOUND|is not found|not supported for generateContent|no longer available/i.test(raw);
 }
 
 async function readError(response: Response) {
@@ -133,23 +168,34 @@ export async function chatGemini(input: {
 
   const endpoint = input.stream ? 'streamGenerateContent' : 'generateContent';
   const url =
-    `https://generativelanguage.googleapis.com/v1beta/models/${input.model}:${endpoint}?key=${input.apiKey}` +
-    (input.stream ? '&alt=sse' : '');
+    `https://generativelanguage.googleapis.com/v1beta/models/${input.model}:${endpoint}` +
+    (input.stream ? '?alt=sse' : '');
 
   const response = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'x-goog-api-key': input.apiKey,
+    },
     body: JSON.stringify(body),
   });
   if (!response.ok) {
+    const errText = await readError(response);
     if (input.stream) {
       return chatGemini({ ...input, stream: false });
     }
+    if (isGeminiModelNotFound(errText) && input.model !== DEFAULT_GEMINI_CHAT_MODEL) {
+      return chatGemini({ ...input, model: DEFAULT_GEMINI_CHAT_MODEL, stream: false });
+    }
     throw new ProviderError(
-      input.withSearch ? 'Google/Gemini research could not complete that request.' : 'Gemini could not complete that request.',
+      formatGeminiProviderError(
+        input.withSearch ? 'Google/Gemini research could not complete that request.' : 'Gemini could not complete that request.',
+        response.status,
+        errText,
+      ),
       input.withSearch ? 'search_error' : 'provider_error',
       502,
-      { httpStatus: response.status, message: await readError(response) },
+      { httpStatus: response.status, message: errText, model: input.model },
     );
   }
 
@@ -251,10 +297,10 @@ export async function generateOpenAiImage(input: {
 
 export async function generateGeminiImage(input: { apiKey: string; model: string; prompt: string }) {
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${input.model}:generateContent?key=${input.apiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/${input.model}:generateContent`,
     {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': input.apiKey },
       body: JSON.stringify({
         contents: [{ role: 'user', parts: [{ text: input.prompt }] }],
         generationConfig: { responseModalities: ['IMAGE', 'TEXT'] },

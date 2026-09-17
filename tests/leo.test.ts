@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { sanitizeArtifacts } from '@/lib/ai-artifacts';
-import { configuredSecret, selectResearchProvider, selectTextChatProvider } from '@/lib/ai-provider';
+import { configuredSecret, formatGeminiProviderError, resolveGeminiChatModel, selectResearchProvider, selectTextChatProvider, SHUT_DOWN_GEMINI_CHAT_MODELS, summarizeGeminiError } from '@/lib/ai-provider';
 import { packConversation } from '@/lib/ai-context';
 import { errorFromAiFailure } from '@/lib/ai-errors';
 import { classifyRequest, detectDetailLevel, isFollowUp, isTopicChange } from '@/lib/ai-router';
@@ -291,5 +291,42 @@ describe('Gemini fallback for normal Leo chat', () => {
     const missing = selectTextChatProvider({ openaiKey: null, geminiKey: '' });
     expect(missing.provider).toBe('none');
     if (missing.provider === 'none') expect(missing.code).toBe('ai_not_configured');
+  });
+
+  it('does not use the shut-down gemini-2.0-flash model for "What is Html"', () => {
+    expect(classifyRequest('What is Html').mode).toBe('fast_answer');
+    expect(classifyRequest('What is Html').needsResearch).toBe(false);
+    expect(SHUT_DOWN_GEMINI_CHAT_MODELS).toContain('gemini-2.0-flash');
+    expect(resolveGeminiChatModel(undefined)).not.toBe('gemini-2.0-flash');
+    expect(resolveGeminiChatModel('gemini-2.0-flash')).toBe('gemini-2.5-flash');
+    expect(selectTextChatProvider({ geminiKey: 'configured' }).withSearch).toBe(false);
+  });
+
+  it('surfaces the real Gemini NOT_FOUND body instead of a generic chat failure', async () => {
+    const geminiBody = JSON.stringify({
+      error: {
+        code: 404,
+        message: 'models/gemini-2.0-flash is not found for API version v1beta, or is not supported for generateContent.',
+        status: 'NOT_FOUND',
+      },
+    });
+    expect(summarizeGeminiError(geminiBody)).toMatch(/NOT_FOUND/);
+    expect(summarizeGeminiError(geminiBody)).toMatch(/gemini-2\.0-flash is not found/);
+    expect(
+      formatGeminiProviderError('Gemini could not complete that request.', { httpStatus: 404, message: geminiBody }),
+    ).toMatch(/HTTP 404/);
+
+    const parsed = await parseFunctionsInvokeFailure({
+      error: { message: 'Edge Function returned a non-2xx status code', context: { status: 502 } },
+      data: {
+        success: false,
+        error: 'Gemini could not complete that request.',
+        code: 'provider_error',
+        details: { httpStatus: 404, message: geminiBody },
+      },
+    });
+    expect(parsed.message).toMatch(/NOT_FOUND/);
+    expect(parsed.message).toMatch(/gemini-2\.0-flash/);
+    expect(parsed.message).not.toMatch(/not deployed/i);
   });
 });

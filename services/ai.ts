@@ -2,6 +2,7 @@ import { AccessError, ConfigurationError, isMissingRelationError } from '@/lib/e
 import { sanitizeArtifacts } from '@/lib/ai-artifacts';
 import { packConversation } from '@/lib/ai-context';
 import { errorFromAiFailure } from '@/lib/ai-errors';
+import { formatGeminiProviderError } from '@/lib/ai-provider';
 import { parseFunctionsInvokeFailure } from '@/lib/functions-error';
 import { canUseKind, dailyAiLimit, getTier } from '@/lib/entitlements';
 import { sanitizeSources } from '@/lib/ai-sources';
@@ -99,13 +100,18 @@ async function readSse(
   },
 ): Promise<GenerateSuccess> {
   const failFromPayload = (data: Record<string, unknown>, status?: number): never => {
+    const details = data.details && typeof data.details === 'object' ? (data.details as Record<string, unknown>) : null;
+    const generic =
+      (typeof data.error === 'string' && data.error) ||
+      (typeof data.message === 'string' && data.message) ||
+      "Leo couldn't complete that request. Please try again.";
     throw errorFromAiFailure({
       httpStatus: status,
       code: typeof data.code === 'string' ? data.code : undefined,
-      message:
-        (typeof data.error === 'string' && data.error) ||
-        (typeof data.message === 'string' && data.message) ||
-        "Leo couldn't complete that request. Please try again.",
+      message: formatGeminiProviderError(generic, {
+        httpStatus: typeof details?.httpStatus === 'number' ? details.httpStatus : status,
+        message: typeof details?.message === 'string' ? details.message : undefined,
+      }),
     });
   };
 
@@ -338,10 +344,14 @@ export const aiService = {
     if (!contentType.includes('text/event-stream')) {
       const data = await response.json().catch(() => ({ error: 'Unable to generate a response.' }));
       if (!response.ok || data?.success === false || data?.error) {
+        const details = data?.details && typeof data.details === 'object' ? (data.details as Record<string, unknown>) : null;
         throw errorFromAiFailure({
           httpStatus: response.status,
           code: typeof data?.code === 'string' ? data.code : undefined,
-          message: String(data?.error || data?.message || "Leo couldn't complete that request. Please try again."),
+          message: formatGeminiProviderError(String(data?.error || data?.message || "Leo couldn't complete that request. Please try again."), {
+            httpStatus: typeof details?.httpStatus === 'number' ? details.httpStatus : response.status,
+            message: typeof details?.message === 'string' ? details.message : undefined,
+          }),
         });
       }
       return asSuccess(data as Record<string, unknown>);
@@ -349,10 +359,14 @@ export const aiService = {
 
     if (!response.ok) {
       const data = await response.json().catch(() => ({ error: "Leo couldn't complete that request. Please try again." }));
+      const details = data?.details && typeof data.details === 'object' ? (data.details as Record<string, unknown>) : null;
       throw errorFromAiFailure({
         httpStatus: response.status,
         code: typeof data?.code === 'string' ? data.code : undefined,
-        message: String(data?.error || data?.message || "Leo couldn't complete that request. Please try again."),
+        message: formatGeminiProviderError(String(data?.error || data?.message || "Leo couldn't complete that request. Please try again."), {
+          httpStatus: typeof details?.httpStatus === 'number' ? details.httpStatus : response.status,
+          message: typeof details?.message === 'string' ? details.message : undefined,
+        }),
       });
     }
 
