@@ -7,7 +7,13 @@ export function configuredSecret(value: string | null | undefined) {
 }
 
 export const DEFAULT_GEMINI_CHAT_MODEL = 'gemini-3.6-flash';
-const SHUT_DOWN_GEMINI_CHAT_MODELS = ['gemini-2.0-flash', 'gemini-2.0-flash-001', 'gemini-2.0-flash-lite'];
+const SHUT_DOWN_GEMINI_CHAT_MODELS = [
+  'gemini-2.0-flash',
+  'gemini-2.0-flash-001',
+  'gemini-2.0-flash-lite',
+  'gemini-2.5-flash',
+  'gemini-2.5-flash-lite',
+];
 
 export function resolveGeminiChatModel(configured?: string | null) {
   const model = configuredSecret(configured) ?? DEFAULT_GEMINI_CHAT_MODEL;
@@ -69,9 +75,10 @@ function isGeminiModelNotFound(raw: string) {
   return /NOT_FOUND|is not found|not supported for generateContent|no longer available/i.test(raw);
 }
 
-function recommendedGeminiModelFromError(raw: string) {
-  const match = raw.match(/use models\/([a-z0-9._-]+)/i);
-  return match?.[1];
+function fallbackGeminiChatModel(currentModel: string, errorText: string) {
+  if (!isGeminiModelNotFound(errorText)) return undefined;
+  if (currentModel === DEFAULT_GEMINI_CHAT_MODEL) return undefined;
+  return DEFAULT_GEMINI_CHAT_MODEL;
 }
 
 async function readError(response: Response) {
@@ -154,6 +161,7 @@ export async function chatGemini(input: {
   stream?: boolean;
   onDelta?: (text: string) => void;
 }) {
+  const model = resolveGeminiChatModel(input.model);
   const parts: Array<Record<string, unknown>> = [
     { text: input.packed.map((item) => `${item.role}: ${item.content}`).join('\n\n') },
   ];
@@ -173,7 +181,7 @@ export async function chatGemini(input: {
 
   const endpoint = input.stream ? 'streamGenerateContent' : 'generateContent';
   const url =
-    `https://generativelanguage.googleapis.com/v1beta/models/${input.model}:${endpoint}` +
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:${endpoint}` +
     (input.stream ? '?alt=sse' : '');
 
   const response = await fetch(url, {
@@ -187,14 +195,11 @@ export async function chatGemini(input: {
   if (!response.ok) {
     const errText = await readError(response);
     if (input.stream) {
-      return chatGemini({ ...input, stream: false });
+      return chatGemini({ ...input, model, stream: false });
     }
-    const recommended = recommendedGeminiModelFromError(errText);
-    if (isGeminiModelNotFound(errText) && recommended && recommended !== input.model) {
-      return chatGemini({ ...input, model: recommended, stream: false });
-    }
-    if (isGeminiModelNotFound(errText) && input.model !== DEFAULT_GEMINI_CHAT_MODEL) {
-      return chatGemini({ ...input, model: DEFAULT_GEMINI_CHAT_MODEL, stream: false });
+    const fallback = fallbackGeminiChatModel(model, errText);
+    if (fallback) {
+      return chatGemini({ ...input, model: fallback, stream: false });
     }
     throw new ProviderError(
       formatGeminiProviderError(
@@ -204,7 +209,7 @@ export async function chatGemini(input: {
       ),
       input.withSearch ? 'search_error' : 'provider_error',
       502,
-      { httpStatus: response.status, message: errText, model: input.model },
+      { httpStatus: response.status, message: errText, model },
     );
   }
 

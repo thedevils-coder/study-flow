@@ -3,9 +3,15 @@ export function configuredSecret(value: string | null | undefined) {
   return trimmed ? trimmed : undefined;
 }
 
-/** Current Gemini Flash model. gemini-2.0-flash was shut down 1 June 2026. */
+/** Current Gemini Flash model. 2.0 Flash was shut down; 2.5 Flash is unavailable to this project. */
 export const DEFAULT_GEMINI_CHAT_MODEL = 'gemini-3.6-flash';
-export const SHUT_DOWN_GEMINI_CHAT_MODELS = ['gemini-2.0-flash', 'gemini-2.0-flash-001', 'gemini-2.0-flash-lite'];
+export const SHUT_DOWN_GEMINI_CHAT_MODELS = [
+  'gemini-2.0-flash',
+  'gemini-2.0-flash-001',
+  'gemini-2.0-flash-lite',
+  'gemini-2.5-flash',
+  'gemini-2.5-flash-lite',
+];
 
 export type TextChatChoice =
   | { provider: 'openai'; withSearch: false }
@@ -62,9 +68,11 @@ export function isGeminiModelNotFound(raw: string) {
   return /NOT_FOUND|is not found|not supported for generateContent|no longer available/i.test(raw);
 }
 
-export function recommendedGeminiModelFromError(raw: string) {
-  const match = raw.match(/use models\/([a-z0-9._-]+)/i);
-  return match?.[1];
+/** One retry only, and only when the current chat model is not already the default. */
+export function fallbackGeminiChatModel(currentModel: string, errorText: string) {
+  if (!isGeminiModelNotFound(errorText)) return undefined;
+  if (currentModel === DEFAULT_GEMINI_CHAT_MODEL) return undefined;
+  return DEFAULT_GEMINI_CHAT_MODEL;
 }
 
 export function formatGeminiProviderError(
