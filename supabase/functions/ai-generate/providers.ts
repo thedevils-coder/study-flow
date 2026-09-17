@@ -1,6 +1,22 @@
 type ChatTurn = { role: 'system' | 'user' | 'assistant'; content: string };
 type Attachment = { name?: string; mime?: string; kind?: string; dataBase64?: string };
 
+export function configuredSecret(value: string | null | undefined) {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+export function selectTextChatProvider(input: { openaiKey?: string | null; geminiKey?: string | null }) {
+  if (configuredSecret(input.openaiKey)) return { provider: 'openai' as const, withSearch: false as const };
+  if (configuredSecret(input.geminiKey)) return { provider: 'gemini' as const, withSearch: false as const };
+  return { provider: 'none' as const, withSearch: false as const, code: 'ai_not_configured' as const };
+}
+
+export function selectResearchProvider(input: { geminiKey?: string | null }) {
+  if (configuredSecret(input.geminiKey)) return { provider: 'gemini' as const, withSearch: true as const };
+  return { provider: 'none' as const, withSearch: false as const, code: 'research_not_configured' as const };
+}
+
 export class ProviderError extends Error {
   code: string;
   status: number;
@@ -126,6 +142,9 @@ export async function chatGemini(input: {
     body: JSON.stringify(body),
   });
   if (!response.ok) {
+    if (input.stream) {
+      return chatGemini({ ...input, stream: false });
+    }
     throw new ProviderError(
       input.withSearch ? 'Google/Gemini research could not complete that request.' : 'Gemini could not complete that request.',
       input.withSearch ? 'search_error' : 'provider_error',

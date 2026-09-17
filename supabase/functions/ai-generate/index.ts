@@ -4,9 +4,12 @@ import { buildStudyPdf } from './pdf.ts';
 import {
   chatGemini,
   chatOpenAI,
+  configuredSecret,
   generateGeminiImage,
   generateOpenAiImage,
   ProviderError,
+  selectResearchProvider,
+  selectTextChatProvider,
 } from './providers.ts';
 
 const cors = {
@@ -260,13 +263,15 @@ Deno.serve(async (request) => {
   const storeKind = kindForMode(route.mode, kind);
   const started = Date.now();
 
-  const openaiKey = Deno.env.get('AI_API_KEY');
+  const openaiKey = configuredSecret(Deno.env.get('AI_API_KEY'));
   const openaiUrl = Deno.env.get('AI_API_URL') ?? 'https://api.openai.com/v1/chat/completions';
   const fastModel = Deno.env.get('AI_FAST_MODEL') ?? Deno.env.get('AI_MODEL') ?? 'gpt-4o-mini';
   const deepModel = Deno.env.get('AI_MODEL') ?? fastModel;
-  const geminiKey = Deno.env.get('GEMINI_API_KEY');
+  const geminiKey = configuredSecret(Deno.env.get('GEMINI_API_KEY'));
   const geminiModel = Deno.env.get('GEMINI_MODEL') ?? 'gemini-2.0-flash';
-  const imageKey = Deno.env.get('IMAGE_API_KEY') ?? openaiKey;
+  const imageKey = configuredSecret(Deno.env.get('IMAGE_API_KEY')) ?? openaiKey;
+  const textChat = selectTextChatProvider({ openaiKey, geminiKey });
+  const research = selectResearchProvider({ geminiKey });
   const imageUrl = Deno.env.get('IMAGE_API_URL') ?? 'https://api.openai.com/v1/images/generations';
   const imageModel = Deno.env.get('IMAGE_MODEL') ?? 'dall-e-3';
 
@@ -304,7 +309,7 @@ Deno.serve(async (request) => {
   const textMode = !['image', 'pdf'].includes(route.mode);
 
   try {
-    if (route.mode === 'research' && !geminiKey) {
+    if (route.mode === 'research' && research.provider === 'none') {
       return fail(503, 'Live Google/Gemini research is not configured yet. Set GEMINI_API_KEY on the ai-generate function.', 'research_not_configured');
     }
     if (route.mode === 'image' && !imageKey && !geminiKey) {
@@ -316,10 +321,10 @@ Deno.serve(async (request) => {
     if (route.mode === 'file_analysis' && !geminiKey && !openaiKey) {
       return fail(503, 'File analysis is not configured yet. Set GEMINI_API_KEY or AI_API_KEY.', 'file_not_configured');
     }
-    if (textMode && route.mode !== 'research' && !openaiKey && !geminiKey) {
+    if (textMode && route.mode !== 'research' && textChat.provider === 'none') {
       return fail(
         503,
-        'AI generation is not configured on the server yet. Set AI_API_KEY or GEMINI_API_KEY. Study Flow never stores AI API keys in the app.',
+        'AI generation is not configured on the server yet. Set GEMINI_API_KEY or AI_API_KEY. Study Flow never stores AI API keys in the app.',
         'ai_not_configured',
       );
     }
@@ -341,7 +346,7 @@ Deno.serve(async (request) => {
           model: geminiModel,
           system,
           packed,
-          withSearch: true,
+          withSearch: research.withSearch,
           maxTokens: maxTokens(tier, route.mode, route.detailLevel),
           stream: Boolean(onDelta),
           onDelta,
@@ -443,7 +448,7 @@ Deno.serve(async (request) => {
         artifacts = [await storeArtifact(admin, userId, pdfBytes, 'application/pdf', 'leo-notes.pdf', 'pdf')];
       } else {
         onStatus?.(loadingLabel(route.mode, route.detailLevel));
-        if (openaiKey) {
+        if (textChat.provider === 'openai' && openaiKey) {
           provider = 'openai';
           model = useFast ? fastModel : deepModel;
           text = await chatOpenAI({
@@ -455,19 +460,26 @@ Deno.serve(async (request) => {
             stream: Boolean(onDelta),
             onDelta,
           });
-        } else {
+        } else if (textChat.provider === 'gemini' && geminiKey) {
           provider = 'gemini';
           model = geminiModel;
           const result = await chatGemini({
-            apiKey: geminiKey as string,
+            apiKey: geminiKey,
             model: geminiModel,
             system,
             packed,
+            withSearch: false,
             maxTokens: maxTokens(tier, route.mode, route.detailLevel),
             stream: Boolean(onDelta),
             onDelta,
           });
           text = result.answer;
+        } else {
+          throw new ProviderError(
+            'AI generation is not configured on the server yet. Set GEMINI_API_KEY or AI_API_KEY.',
+            'ai_not_configured',
+            503,
+          );
         }
       }
 

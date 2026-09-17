@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { sanitizeArtifacts } from '@/lib/ai-artifacts';
+import { configuredSecret, selectResearchProvider, selectTextChatProvider } from '@/lib/ai-provider';
 import { packConversation } from '@/lib/ai-context';
 import { errorFromAiFailure } from '@/lib/ai-errors';
 import { classifyRequest, detectDetailLevel, isFollowUp, isTopicChange } from '@/lib/ai-router';
@@ -254,5 +255,41 @@ describe('artifacts, retry, streaming, and failures', () => {
     expect(summary.used).toBe(1);
     expect(summary.remaining).toBe(9);
     expect(shouldCountUsage({ stored: false, success: false })).toBe(false);
+  });
+});
+
+describe('Gemini fallback for normal Leo chat', () => {
+  it('uses Gemini without Google Search when AI_API_KEY is absent', () => {
+    const choice = selectTextChatProvider({ openaiKey: undefined, geminiKey: 'configured' });
+    expect(choice).toEqual({ provider: 'gemini', withSearch: false });
+    expect(classifyRequest('What is HTML?').needsResearch).toBe(false);
+    expect(classifyRequest('Explain photosynthesis.').mode).toBe('fast_answer');
+    expect(classifyRequest('Explain photosynthesis in detail for my exam.').mode).toBe('detailed_answer');
+  });
+
+  it('treats blank AI_API_KEY as missing and still falls back to Gemini', () => {
+    expect(configuredSecret('   ')).toBeUndefined();
+    expect(selectTextChatProvider({ openaiKey: '  ', geminiKey: 'configured' }).provider).toBe('gemini');
+  });
+
+  it('prefers OpenAI for normal chat when AI_API_KEY is present', () => {
+    expect(selectTextChatProvider({ openaiKey: 'configured', geminiKey: 'configured' })).toEqual({
+      provider: 'openai',
+      withSearch: false,
+    });
+  });
+
+  it('keeps Google Search grounding only for research', () => {
+    expect(selectResearchProvider({ geminiKey: 'configured' })).toEqual({ provider: 'gemini', withSearch: true });
+    const missingResearch = selectResearchProvider({ geminiKey: '' });
+    expect(missingResearch.provider).toBe('none');
+    if (missingResearch.provider === 'none') expect(missingResearch.code).toBe('research_not_configured');
+    expect(classifyRequest('What are the latest developments in HTML?').needsResearch).toBe(true);
+  });
+
+  it('reports missing configuration when neither chat key is set', () => {
+    const missing = selectTextChatProvider({ openaiKey: null, geminiKey: '' });
+    expect(missing.provider).toBe('none');
+    if (missing.provider === 'none') expect(missing.code).toBe('ai_not_configured');
   });
 });

@@ -6,11 +6,11 @@ These are account actions, not application-code gaps.
 | --- | --- | --- |
 | Supabase URL + publishable key | EAS secrets / local `.env` | Public client values only. URL is the project origin (`https://<ref>.supabase.co`), not `/rest/v1/`. |
 | Google OAuth | Supabase Auth + Google Cloud | Callback is the Supabase URL; app scheme is `studyflow://` |
-| AI_API_KEY | Supabase Edge Function secrets | OpenAI-compatible chat (fast/detailed answers, notes, quizzes, PDF content). Never `EXPO_PUBLIC_` |
+| AI_API_KEY | Supabase Edge Function secrets | Optional. OpenAI-compatible chat when set. If absent, Leo uses `GEMINI_API_KEY` for normal/fast/detailed chat, notes, quizzes, and PDF content. Never `EXPO_PUBLIC_` |
 | AI_API_URL | Edge Function secret (optional) | Defaults to `https://api.openai.com/v1/chat/completions` |
 | AI_MODEL | Edge Function secret (optional) | Deeper model. Default `gpt-4o-mini` |
 | AI_FAST_MODEL | Edge Function secret (optional) | Fast model for simple questions |
-| GEMINI_API_KEY | Edge Function secret | Google Search grounding / Gemini fallback / file analysis. Never `EXPO_PUBLIC_` |
+| GEMINI_API_KEY | Edge Function secret | Sufficient for normal Leo chat and Google Search research. Also used for file analysis and Gemini image fallback. Never `EXPO_PUBLIC_` |
 | GEMINI_MODEL | Edge Function secret (optional) | Default `gemini-2.0-flash` |
 | GEMINI_IMAGE_MODEL | Edge Function secret (optional) | Used only if `IMAGE_API_KEY` is not set |
 | IMAGE_API_KEY | Edge Function secret (optional) | Image generation. Falls back to `AI_API_KEY` |
