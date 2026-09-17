@@ -21,7 +21,14 @@
       "expo-font",
       "expo-web-browser",
       "expo-notifications",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "expo-document-picker",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Study Flow to attach study photos for Leo."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Image,
@@ -14,10 +14,12 @@ import {
 } from 'react-native';
 
 import { EmptyState } from '@/components/EmptyState';
+import { ProgressBar } from '@/components/ProgressBar';
 import { Screen } from '@/components/Screen';
 import { TestStateNotice } from '@/components/TestStateNotice';
 import { AccessError, ConfigurationError, userFacingError } from '@/lib/errors';
-import { canUseKind, hasProAccess } from '@/lib/entitlements';
+import { summarizeDailyUsage } from '@/lib/ai-usage';
+import { canUseKind, dailyAiLimit, displayPlanLabel, hasProAccess } from '@/lib/entitlements';
 import { formatRelativeTime, kindLabel } from '@/lib/dates';
 import { TESTER_COPY, isTesterBuildEnabled, isTesterSession } from '@/lib/tester';
 import { useAuth } from '@/providers/auth-provider';
@@ -95,9 +97,21 @@ export default function AiMeter() {
   const [kind, setKind] = useState<AiKind>('notes');
   const [loading, setLoading] = useState(false);
   const [showAllSuggestions, setShowAllSuggestions] = useState(false);
+  const limit = dailyAiLimit(tier);
+  const [usage, setUsage] = useState(() => summarizeDailyUsage(aiActivity, limit));
 
   const visibleSuggestions = showAllSuggestions ? suggestions : suggestions.slice(0, 4);
   const recent = useMemo(() => aiActivity.slice(0, 3), [aiActivity]);
+
+  useEffect(() => {
+    const fallback = summarizeDailyUsage(aiActivity, dailyAiLimit(tier));
+    setUsage(fallback);
+    if (!session) return;
+    void aiService
+      .usageToday(session.id, dailyAiLimit(tier))
+      .then(setUsage)
+      .catch(() => setUsage(fallback));
+  }, [aiActivity, session, tier]);
 
   const generate = async (nextKind: AiKind, nextPrompt: string) => {
     if (!session) return;
@@ -155,7 +169,7 @@ export default function AiMeter() {
           onPress={() =>
             Alert.alert(
               'AI Meter',
-              'Generate notes, summaries, flashcards and quizzes through a secure server. API keys never live in the app.',
+              'Generate notes, summaries, flashcards and quizzes through a secure server. Usage counts successful generations only. API keys never live in the app.',
             )
           }
           style={styles.plainBtn}
@@ -180,6 +194,20 @@ export default function AiMeter() {
         <View style={styles.robotWrap}>
           <Image source={require('../assets/images/leo-robot.png')} style={styles.robot} />
         </View>
+      </View>
+
+      <View style={[styles.usageCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View style={styles.usageTop}>
+          <Text style={[styles.usageTitle, { color: colors.text }]}>Today’s AI usage</Text>
+          <Text style={[styles.usagePlan, { color: colors.accent }]}>{displayPlanLabel(tier)}</Text>
+        </View>
+        <Text style={{ color: colors.secondaryText, marginBottom: 8 }}>
+          {usage.used} of {usage.limit || 0} used · {usage.remaining} remaining
+        </Text>
+        <ProgressBar value={usage.limit ? (usage.used / usage.limit) * 100 : 0} />
+        <Text style={{ color: colors.mutedText, marginTop: 8, fontSize: 12, lineHeight: 18 }}>
+          Counts successful notes, quizzes, Leo replies, images and PDFs. Failed requests are not counted.
+        </Text>
       </View>
 
       <View style={styles.create}>
@@ -363,6 +391,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   robot: { width: 96, height: 96, resizeMode: 'contain' },
+  usageCard: { borderRadius: 20, borderWidth: 1, padding: 16, marginBottom: 16 },
+  usageTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+  usageTitle: { fontSize: 16, fontWeight: '800' },
+  usagePlan: { fontWeight: '800', fontSize: 13 },
   create: {
     backgroundColor: '#6B4BFF',
     borderRadius: 26,
