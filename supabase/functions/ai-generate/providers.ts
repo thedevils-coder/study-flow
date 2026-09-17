@@ -75,6 +75,27 @@ function isGeminiModelNotFound(raw: string) {
   return /NOT_FOUND|is not found|not supported for generateContent|no longer available/i.test(raw);
 }
 
+export function isGeminiQuotaError(httpStatus?: number, raw?: string) {
+  if (httpStatus === 429) return true;
+  return /RESOURCE_EXHAUSTED|exceeded your current quota|quota.*billing/i.test(raw ?? '');
+}
+
+export const DEFAULT_GEMINI_IMAGE_MODEL = 'gemini-2.5-flash-image';
+
+export function geminiImageQuotaMessage() {
+  return 'Image generation is temporarily unavailable because this project’s Gemini image quota is used up. Leo text chat and PDFs still work. Please try again later.';
+}
+
+export function imageActionAfterGeminiError(input: {
+  httpStatus?: number;
+  raw?: string;
+  openaiImageKey?: string | null;
+}): 'openai_fallback' | 'quota_unavailable' | 'rethrow' {
+  if (!isGeminiQuotaError(input.httpStatus, input.raw)) return 'rethrow';
+  if (configuredSecret(input.openaiImageKey)) return 'openai_fallback';
+  return 'quota_unavailable';
+}
+
 function fallbackGeminiChatModel(currentModel: string, errorText: string) {
   if (!isGeminiModelNotFound(errorText)) return undefined;
   if (currentModel === DEFAULT_GEMINI_CHAT_MODEL) return undefined;
@@ -431,9 +452,18 @@ export async function generateGeminiImage(input: { apiKey: string; model: string
     },
   );
   if (!response.ok) {
+    const errText = await readError(response);
+    if (isGeminiQuotaError(response.status, errText)) {
+      throw new ProviderError(geminiImageQuotaMessage(), 'image_quota', 502, {
+        httpStatus: response.status,
+        message: errText,
+        model: input.model,
+      });
+    }
     throw new ProviderError('Gemini image generation failed.', 'image_error', 502, {
       httpStatus: response.status,
-      message: await readError(response),
+      message: errText,
+      model: input.model,
     });
   }
   const data = await response.json();

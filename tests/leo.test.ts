@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { sanitizeArtifacts } from '@/lib/ai-artifacts';
-import { configuredSecret, DEFAULT_GEMINI_CHAT_MODEL, extractGeminiText, extractGeminiTextFromStreamBody, fallbackGeminiChatModel, formatGeminiProviderError, resolveGeminiChatModel, selectResearchProvider, selectTextChatProvider, SHUT_DOWN_GEMINI_CHAT_MODELS, summarizeGeminiError } from '@/lib/ai-provider';
+import { configuredSecret, DEFAULT_GEMINI_CHAT_MODEL, DEFAULT_GEMINI_IMAGE_MODEL, extractGeminiText, extractGeminiTextFromStreamBody, fallbackGeminiChatModel, formatGeminiProviderError, geminiImageQuotaMessage, imageActionAfterGeminiError, isGeminiQuotaError, resolveGeminiChatModel, selectResearchProvider, selectTextChatProvider, SHUT_DOWN_GEMINI_CHAT_MODELS, summarizeGeminiError } from '@/lib/ai-provider';
 import { packConversation } from '@/lib/ai-context';
 import { errorFromAiFailure } from '@/lib/ai-errors';
 import { classifyRequest, detectDetailLevel, isFollowUp, isTopicChange } from '@/lib/ai-router';
@@ -415,5 +415,68 @@ describe('Gemini 3.6 Flash response parsing', () => {
       }),
     ).toBe('');
     expect(extractGeminiTextFromStreamBody('data: {"candidates":[{"content":{"parts":[]}}]}\n\n')).toBe('');
+  });
+});
+
+describe('Gemini image quota handling', () => {
+  const quotaBody = JSON.stringify({
+    error: {
+      code: 429,
+      message: 'You exceeded your current quota, please check your plan and billing details.',
+      status: 'RESOURCE_EXHAUSTED',
+    },
+  });
+
+  it('treats Gemini image HTTP 429 as a quota/rate-limit error, not a parse error', () => {
+    expect(DEFAULT_GEMINI_IMAGE_MODEL).toBe('gemini-2.5-flash-image');
+    expect(isGeminiQuotaError(429, quotaBody)).toBe(true);
+    expect(isGeminiQuotaError(200, '{"candidates":[]}')).toBe(false);
+    expect(isGeminiQuotaError(404, '{"error":{"status":"NOT_FOUND"}}')).toBe(false);
+    expect(geminiImageQuotaMessage()).toMatch(/quota is used up/i);
+    expect(geminiImageQuotaMessage()).not.toMatch(/gemini-3\.6-flash/);
+  });
+
+  it('falls back to OpenAI images when IMAGE_API_KEY is present and Gemini returns 429', () => {
+    expect(
+      imageActionAfterGeminiError({
+        httpStatus: 429,
+        raw: quotaBody,
+        openaiImageKey: 'sk-test',
+      }),
+    ).toBe('openai_fallback');
+  });
+
+  it('explains quota unavailability when no OpenAI image key is configured', () => {
+    expect(
+      imageActionAfterGeminiError({
+        httpStatus: 429,
+        raw: quotaBody,
+        openaiImageKey: '',
+      }),
+    ).toBe('quota_unavailable');
+    expect(
+      errorFromAiFailure({
+        httpStatus: 502,
+        code: 'image_quota',
+        message: geminiImageQuotaMessage(),
+      }).message,
+    ).toMatch(/Gemini image quota is used up/i);
+    expect(
+      errorFromAiFailure({
+        httpStatus: 502,
+        code: 'image_quota',
+        message: geminiImageQuotaMessage(),
+      }),
+    ).not.toBeInstanceOf(AccessError);
+  });
+
+  it('does not treat a non-quota Gemini image failure as an OpenAI fallback', () => {
+    expect(
+      imageActionAfterGeminiError({
+        httpStatus: 404,
+        raw: '{"error":{"status":"NOT_FOUND","message":"model not found"}}',
+        openaiImageKey: 'sk-test',
+      }),
+    ).toBe('rethrow');
   });
 });

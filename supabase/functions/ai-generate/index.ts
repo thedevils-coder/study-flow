@@ -5,8 +5,11 @@ import {
   chatGemini,
   chatOpenAI,
   configuredSecret,
+  DEFAULT_GEMINI_IMAGE_MODEL,
   generateGeminiImage,
   generateOpenAiImage,
+  geminiImageQuotaMessage,
+  imageActionAfterGeminiError,
   ProviderError,
   resolveGeminiChatModel,
   selectResearchProvider,
@@ -395,7 +398,44 @@ Deno.serve(async (request) => {
         const imagePrompt = `Educational, clear, student-friendly diagram. No logos, no watermarks. Topic:\n${topic}`;
         let bytes: Uint8Array;
         let mime = 'image/png';
-        if (imageKey) {
+        const geminiImageModel = Deno.env.get('GEMINI_IMAGE_MODEL') ?? DEFAULT_GEMINI_IMAGE_MODEL;
+        if (geminiKey) {
+          try {
+            provider = 'gemini-image';
+            model = geminiImageModel;
+            const generated = await generateGeminiImage({
+              apiKey: geminiKey,
+              model: geminiImageModel,
+              prompt: imagePrompt,
+            });
+            bytes = generated.bytes;
+            mime = generated.mime;
+          } catch (error) {
+            const err = error as ProviderError;
+            const details = err.details ?? {};
+            const action = imageActionAfterGeminiError({
+              httpStatus: typeof details.httpStatus === 'number' ? details.httpStatus : undefined,
+              raw: typeof details.message === 'string' ? details.message : err.message,
+              openaiImageKey: imageKey,
+            });
+            if (action === 'openai_fallback' && imageKey) {
+              provider = 'openai-image';
+              model = imageModel;
+              const generated = await generateOpenAiImage({
+                apiUrl: imageUrl,
+                apiKey: imageKey,
+                model: imageModel,
+                prompt: imagePrompt,
+              });
+              bytes = generated.bytes;
+              mime = generated.mime;
+            } else if (action === 'quota_unavailable') {
+              throw new ProviderError(geminiImageQuotaMessage(), 'image_quota', 502, err.details);
+            } else {
+              throw error;
+            }
+          }
+        } else if (imageKey) {
           provider = 'openai-image';
           model = imageModel;
           const generated = await generateOpenAiImage({
@@ -407,15 +447,11 @@ Deno.serve(async (request) => {
           bytes = generated.bytes;
           mime = generated.mime;
         } else {
-          provider = 'gemini-image';
-          model = Deno.env.get('GEMINI_IMAGE_MODEL') ?? 'gemini-2.5-flash-image';
-          const generated = await generateGeminiImage({
-            apiKey: geminiKey as string,
-            model,
-            prompt: imagePrompt,
-          });
-          bytes = generated.bytes;
-          mime = generated.mime;
+          throw new ProviderError(
+            'Image generation is not configured yet. Set IMAGE_API_KEY or GEMINI_API_KEY on the ai-generate function.',
+            'image_not_configured',
+            503,
+          );
         }
         text = 'Here is a diagram from this conversation.';
         artifacts = [await storeArtifact(admin, userId, bytes, mime, 'leo-diagram.png', 'image')];
