@@ -5,6 +5,7 @@ import { Alert, Platform, Pressable, StyleSheet, Text, View } from 'react-native
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { EmptyState } from '@/components/EmptyState';
+import { ErrorState } from '@/components/ErrorState';
 import { GoalCard } from '@/components/GoalCard';
 import { Input } from '@/components/Input';
 import { Screen } from '@/components/Screen';
@@ -15,7 +16,7 @@ import { useStudy } from '@/providers/study-provider';
 import { useTheme } from '@/providers/theme-provider';
 
 export default function Goals() {
-  const { goals, createGoal, updateGoal, deleteGoal } = useStudy();
+  const { goals, error, createGoal, updateGoal, deleteGoal } = useStudy();
   const { colors } = useTheme();
   const [title, setTitle] = useState('');
   const [target, setTarget] = useState('');
@@ -41,6 +42,7 @@ export default function Goals() {
   return (
     <Screen>
       <ScreenHeader title="Goals" back />
+      {error ? <ErrorState message={error} /> : null}
       <Card>
         <Text style={[styles.heading, { color: colors.text }]}>Create a goal</Text>
         <Input label="Title" value={title} onChangeText={setTitle} placeholder="Study 20 hours this month" />

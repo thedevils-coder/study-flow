@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 import { addDays, startOfWeek } from '@/lib/dates';
+import { ConfigurationError } from '@/lib/errors';
 import { summarizeProgress, type ProgressSummary } from '@/lib/progress';
 import { achievementService } from '@/services/achievements';
 import { aiService } from '@/services/ai';
@@ -78,15 +79,37 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
     const lookback = addDays(weekStart, -370);
 
     try {
-      const [taskRows, goalRows, recent, previous, allFocus, settingsRow, activity] = await Promise.all([
-        taskService.list(session.id),
-        goalService.list(session.id),
-        focusService.list(session.id, weekStart, addDays(weekStart, 7)),
-        focusService.list(session.id, previousStart, weekStart),
-        focusService.list(session.id, lookback, addDays(new Date(), 1)),
-        settingsService.load(session.id),
-        aiService.history(session.id, 30).catch(() => [] as AiActivity[]),
-      ]);
+      const [taskResult, goalResult, recentResult, previousResult, allFocusResult, settingsResult, activityResult] =
+        await Promise.allSettled([
+          taskService.list(session.id),
+          goalService.list(session.id),
+          focusService.list(session.id, weekStart, addDays(weekStart, 7)),
+          focusService.list(session.id, previousStart, weekStart),
+          focusService.list(session.id, lookback, addDays(new Date(), 1)),
+          settingsService.load(session.id),
+          aiService.history(session.id, 30),
+        ]);
+
+      const valueOf = <T,>(result: PromiseSettledResult<T>, fallback: T) =>
+        result.status === 'fulfilled' ? result.value : fallback;
+      const errors = [
+        taskResult,
+        goalResult,
+        recentResult,
+        previousResult,
+        allFocusResult,
+        settingsResult,
+        activityResult,
+      ]
+        .filter((result): result is PromiseRejectedResult => result.status === 'rejected')
+        .map((result) => (result.reason instanceof Error ? result.reason.message : String(result.reason)));
+
+      const taskRows = valueOf(taskResult, [] as Task[]);
+      const goalRows = valueOf(goalResult, [] as StudyGoal[]);
+      const previous = valueOf(previousResult, [] as FocusSession[]);
+      const allFocus = valueOf(allFocusResult, [] as FocusSession[]);
+      const settingsRow = valueOf(settingsResult, null);
+      const activity = valueOf(activityResult, [] as AiActivity[]);
 
       setTasks(taskRows);
       setGoals(goalRows);
@@ -95,7 +118,14 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
       setUserSettings(settingsRow);
       setAiActivity(activity);
       setAchievements(await achievementService.list(session.id, allFocus, goalRows));
-      void recent;
+      setError(errors[0] ?? null);
+      void recentResult;
+
+      if (settingsRow) {
+        await notificationService.applyReminders({ settings: settingsRow, tasks: taskRows, goals: goalRows }).catch(
+          () => undefined,
+        );
+      }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to load study data.');
     } finally {
@@ -178,6 +208,11 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
           completed: patch.completed,
         });
         setTasks((current) => current.map((task) => (task.id === id ? saved : task)));
+        if (userSettings?.notificationsEnabled && userSettings.taskReminders && saved.scheduledAt && !saved.completed) {
+          await notificationService.scheduleTaskReminder(saved.id, saved.title, new Date(saved.scheduledAt));
+        } else {
+          await notificationService.cancelTaskReminder(id);
+        }
       },
 
       async deleteTask(id) {
@@ -196,6 +231,11 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
           dueAt: dueAt?.toISOString() ?? null,
         });
         setGoals((current) => [saved, ...current]);
+        if (userSettings?.notificationsEnabled && userSettings.goalReminders) {
+          await notificationService
+            .applyReminders({ settings: userSettings, tasks, goals: [saved, ...goals] })
+            .catch(() => undefined);
+        }
       },
 
       async updateGoal(id, patch) {
@@ -217,8 +257,19 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
 
       async saveSettings(patch) {
         if (!session) return;
-        const saved = await settingsService.save(session.id, patch);
-        setUserSettings(saved);
+        try {
+          const saved = await settingsService.save(session.id, patch);
+          setUserSettings(saved);
+          await notificationService.applyReminders({ settings: saved, tasks, goals });
+        } catch (error) {
+          if (error instanceof ConfigurationError && error.savedSettings) {
+            setUserSettings(error.savedSettings as UserSettings);
+            await notificationService
+              .applyReminders({ settings: error.savedSettings as UserSettings, tasks, goals })
+              .catch(() => undefined);
+          }
+          throw error;
+        }
       },
 
       async recordCompletedFocus(startedAt, durationSeconds) {

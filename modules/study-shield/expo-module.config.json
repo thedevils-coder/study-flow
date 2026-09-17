@@ -1,0 +1,9 @@
+{
+  "platforms": ["apple", "android"],
+  "apple": {
+    "modules": ["StudyShieldModule"]
+  },
+  "android": {
+    "modules": ["expo.modules.studyshield.StudyShieldModule"]
+  }
+}
