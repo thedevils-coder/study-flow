@@ -6,7 +6,7 @@ export function configuredSecret(value: string | null | undefined) {
   return trimmed ? trimmed : undefined;
 }
 
-export const DEFAULT_GEMINI_CHAT_MODEL = 'gemini-2.5-flash';
+export const DEFAULT_GEMINI_CHAT_MODEL = 'gemini-3.6-flash';
 const SHUT_DOWN_GEMINI_CHAT_MODELS = ['gemini-2.0-flash', 'gemini-2.0-flash-001', 'gemini-2.0-flash-lite'];
 
 export function resolveGeminiChatModel(configured?: string | null) {
@@ -67,6 +67,11 @@ function formatGeminiProviderError(generic: string, httpStatus: number, raw: str
 
 function isGeminiModelNotFound(raw: string) {
   return /NOT_FOUND|is not found|not supported for generateContent|no longer available/i.test(raw);
+}
+
+function recommendedGeminiModelFromError(raw: string) {
+  const match = raw.match(/use models\/([a-z0-9._-]+)/i);
+  return match?.[1];
 }
 
 async function readError(response: Response) {
@@ -183,6 +188,10 @@ export async function chatGemini(input: {
     const errText = await readError(response);
     if (input.stream) {
       return chatGemini({ ...input, stream: false });
+    }
+    const recommended = recommendedGeminiModelFromError(errText);
+    if (isGeminiModelNotFound(errText) && recommended && recommended !== input.model) {
+      return chatGemini({ ...input, model: recommended, stream: false });
     }
     if (isGeminiModelNotFound(errText) && input.model !== DEFAULT_GEMINI_CHAT_MODEL) {
       return chatGemini({ ...input, model: DEFAULT_GEMINI_CHAT_MODEL, stream: false });

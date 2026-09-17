@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { sanitizeArtifacts } from '@/lib/ai-artifacts';
-import { configuredSecret, formatGeminiProviderError, resolveGeminiChatModel, selectResearchProvider, selectTextChatProvider, SHUT_DOWN_GEMINI_CHAT_MODELS, summarizeGeminiError } from '@/lib/ai-provider';
+import { configuredSecret, formatGeminiProviderError, recommendedGeminiModelFromError, resolveGeminiChatModel, selectResearchProvider, selectTextChatProvider, SHUT_DOWN_GEMINI_CHAT_MODELS, summarizeGeminiError } from '@/lib/ai-provider';
 import { packConversation } from '@/lib/ai-context';
 import { errorFromAiFailure } from '@/lib/ai-errors';
 import { classifyRequest, detectDetailLevel, isFollowUp, isTopicChange } from '@/lib/ai-router';
@@ -297,9 +297,26 @@ describe('Gemini fallback for normal Leo chat', () => {
     expect(classifyRequest('What is Html').mode).toBe('fast_answer');
     expect(classifyRequest('What is Html').needsResearch).toBe(false);
     expect(SHUT_DOWN_GEMINI_CHAT_MODELS).toContain('gemini-2.0-flash');
-    expect(resolveGeminiChatModel(undefined)).not.toBe('gemini-2.0-flash');
-    expect(resolveGeminiChatModel('gemini-2.0-flash')).toBe('gemini-2.5-flash');
+    expect(resolveGeminiChatModel(undefined)).toBe('gemini-3.6-flash');
+    expect(resolveGeminiChatModel('gemini-2.0-flash')).toBe('gemini-3.6-flash');
     expect(selectTextChatProvider({ geminiKey: 'configured' }).withSearch).toBe(false);
+  });
+
+  it('follows the live Gemini 404 replacement to gemini-3.6-flash', () => {
+    const geminiBody = JSON.stringify({
+      error: {
+        code: 404,
+        message:
+          'This model models/gemini-2.0-flash is no longer available. Please update your code to use models/gemini-3.6-flash for the latest features and improvements. We recommend you to use the Interactions API.',
+        status: 'NOT_FOUND',
+      },
+    });
+    expect(recommendedGeminiModelFromError(geminiBody)).toBe('gemini-3.6-flash');
+    expect(summarizeGeminiError(geminiBody)).toMatch(/no longer available/);
+    expect(summarizeGeminiError(geminiBody)).toMatch(/gemini-3\.6-flash/);
+    expect(
+      formatGeminiProviderError('Gemini could not complete that request.', { httpStatus: 404, message: geminiBody }),
+    ).toMatch(/HTTP 404/);
   });
 
   it('surfaces the real Gemini NOT_FOUND body instead of a generic chat failure', async () => {

@@ -4,7 +4,7 @@ export function configuredSecret(value: string | null | undefined) {
 }
 
 /** Current Gemini Flash model. gemini-2.0-flash was shut down 1 June 2026. */
-export const DEFAULT_GEMINI_CHAT_MODEL = 'gemini-2.5-flash';
+export const DEFAULT_GEMINI_CHAT_MODEL = 'gemini-3.6-flash';
 export const SHUT_DOWN_GEMINI_CHAT_MODELS = ['gemini-2.0-flash', 'gemini-2.0-flash-001', 'gemini-2.0-flash-lite'];
 
 export type TextChatChoice =
@@ -60,6 +60,11 @@ export function summarizeGeminiError(raw: string) {
 
 export function isGeminiModelNotFound(raw: string) {
   return /NOT_FOUND|is not found|not supported for generateContent|no longer available/i.test(raw);
+}
+
+export function recommendedGeminiModelFromError(raw: string) {
+  const match = raw.match(/use models\/([a-z0-9._-]+)/i);
+  return match?.[1];
 }
 
 export function formatGeminiProviderError(
