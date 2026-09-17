@@ -93,3 +93,99 @@ export function resolveGeminiChatModel(configured?: string | null) {
   if (SHUT_DOWN_GEMINI_CHAT_MODELS.includes(model)) return DEFAULT_GEMINI_CHAT_MODEL;
   return model;
 }
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+}
+
+function geminiPartText(part: Record<string, unknown>, includeThought: boolean) {
+  if (part.thought === true && !includeThought) return '';
+  if (typeof part.text === 'string' && part.text) return part.text;
+  const executable = asRecord(part.executableCode) ?? asRecord(part.executable_code);
+  if (typeof executable?.code === 'string' && executable.code) return executable.code;
+  const executed = asRecord(part.codeExecutionResult) ?? asRecord(part.code_execution_result);
+  if (typeof executed?.output === 'string' && executed.output) return executed.output;
+  return '';
+}
+
+function collectGeminiParts(payload: Record<string, unknown>) {
+  const candidates = Array.isArray(payload.candidates) ? payload.candidates : [];
+  const parts: Record<string, unknown>[] = [];
+  for (const candidate of candidates) {
+    const record = asRecord(candidate);
+    if (!record) continue;
+    const content = record.content;
+    const contents = Array.isArray(content)
+      ? content
+      : content
+        ? [content]
+        : Array.isArray(record.parts)
+          ? [record]
+          : [];
+    for (const item of contents) {
+      const contentRecord = asRecord(item);
+      if (!contentRecord) continue;
+      const rawParts = contentRecord.parts;
+      if (Array.isArray(rawParts)) {
+        for (const part of rawParts) {
+          const partRecord = asRecord(part);
+          if (partRecord) parts.push(partRecord);
+        }
+      } else if (typeof contentRecord.text === 'string') {
+        parts.push(contentRecord);
+      }
+    }
+  }
+  return parts;
+}
+
+/** Visible text from a Gemini generateContent / streamGenerateContent payload. */
+export function extractGeminiText(data: unknown): string {
+  const payloads = Array.isArray(data) ? data : data ? [data] : [];
+  const visible: string[] = [];
+  const thought: string[] = [];
+  for (const payload of payloads) {
+    const record = asRecord(payload);
+    if (!record) continue;
+    if (typeof record.text === 'string' && record.text.trim() && !record.candidates) {
+      visible.push(record.text);
+      continue;
+    }
+    for (const part of collectGeminiParts(record)) {
+      const answer = geminiPartText(part, false);
+      if (answer) {
+        visible.push(answer);
+        continue;
+      }
+      const thoughtText = geminiPartText(part, true);
+      if (part.thought === true && thoughtText) thought.push(thoughtText);
+    }
+  }
+  return (visible.join('') || thought.join('\n')).trim();
+}
+
+export function extractGeminiTextFromStreamBody(raw: string) {
+  const text = raw.replace(/\r\n/g, '\n');
+  const chunks: string[] = [];
+  const looksLikeSse = /(?:^|\n)data:/.test(text);
+  if (looksLikeSse) {
+    for (const block of `${text}\n\n`.split('\n\n')) {
+      const line = block.split('\n').find((item) => item.startsWith('data:'));
+      if (!line) continue;
+      const payload = line.slice(5).trim();
+      if (!payload || payload === '[DONE]') continue;
+      try {
+        const delta = extractGeminiText(JSON.parse(payload));
+        if (delta) chunks.push(delta);
+      } catch {
+        // ignore malformed stream chunks
+      }
+    }
+    if (chunks.length) return chunks.join('').trim();
+  }
+  try {
+    return extractGeminiText(JSON.parse(text));
+  } catch {
+    return chunks.join('').trim();
+  }
+}

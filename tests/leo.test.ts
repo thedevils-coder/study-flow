@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { sanitizeArtifacts } from '@/lib/ai-artifacts';
-import { configuredSecret, DEFAULT_GEMINI_CHAT_MODEL, fallbackGeminiChatModel, formatGeminiProviderError, resolveGeminiChatModel, selectResearchProvider, selectTextChatProvider, SHUT_DOWN_GEMINI_CHAT_MODELS, summarizeGeminiError } from '@/lib/ai-provider';
+import { configuredSecret, DEFAULT_GEMINI_CHAT_MODEL, extractGeminiText, extractGeminiTextFromStreamBody, fallbackGeminiChatModel, formatGeminiProviderError, resolveGeminiChatModel, selectResearchProvider, selectTextChatProvider, SHUT_DOWN_GEMINI_CHAT_MODELS, summarizeGeminiError } from '@/lib/ai-provider';
 import { packConversation } from '@/lib/ai-context';
 import { errorFromAiFailure } from '@/lib/ai-errors';
 import { classifyRequest, detectDetailLevel, isFollowUp, isTopicChange } from '@/lib/ai-router';
@@ -347,5 +347,73 @@ describe('Gemini fallback for normal Leo chat', () => {
     expect(parsed.message).toMatch(/NOT_FOUND/);
     expect(parsed.message).toMatch(/gemini-2\.0-flash/);
     expect(parsed.message).not.toMatch(/not deployed/i);
+  });
+});
+
+describe('Gemini 3.6 Flash response parsing', () => {
+  const htmlAnswer = 'HTML is the standard language for structuring web pages.';
+
+  it('extracts visible text from a realistic Gemini 3.6 Flash generateContent response', () => {
+    const response = {
+      candidates: [
+        {
+          content: {
+            role: 'model',
+            parts: [
+              { thought: true, thoughtSignature: 'abc', text: 'The user asked what HTML is. I should give a short accurate definition.' },
+              { text: htmlAnswer },
+            ],
+          },
+          finishReason: 'STOP',
+          index: 0,
+        },
+      ],
+      usageMetadata: {
+        promptTokenCount: 48,
+        candidatesTokenCount: 16,
+        thoughtsTokenCount: 80,
+        totalTokenCount: 144,
+      },
+      modelVersion: 'gemini-3.6-flash',
+    };
+    expect(extractGeminiText(response)).toBe(htmlAnswer);
+  });
+
+  it('does not treat HTTP 200 thought+text stream chunks as empty', () => {
+    const sse = [
+      'data: {"candidates":[{"content":{"parts":[{"thought":true,"thoughtSignature":"sig"}]},"finishReason":"STOP"}]}',
+      '',
+      `data: {"candidates":[{"content":{"role":"model","parts":[{"text":"${htmlAnswer}"}]},"finishReason":"STOP"}]}`,
+    ].join('\n');
+    expect(extractGeminiTextFromStreamBody(sse)).toBe(htmlAnswer);
+  });
+
+  it('parses a trailing stream chunk that is missing the final blank line', () => {
+    const sse = `data: {"candidates":[{"content":{"parts":[{"text":"${htmlAnswer}"}]}}]}`;
+    expect(extractGeminiTextFromStreamBody(sse)).toBe(htmlAnswer);
+  });
+
+  it('parses a JSON array streamGenerateContent body', () => {
+    const body = JSON.stringify([
+      { candidates: [{ content: { parts: [{ thought: true, thoughtSignature: 'sig' }] } }] },
+      { candidates: [{ content: { parts: [{ text: htmlAnswer }] }, finishReason: 'STOP' }] },
+    ]);
+    expect(extractGeminiTextFromStreamBody(body)).toBe(htmlAnswer);
+  });
+
+  it('keeps genuinely empty Gemini responses empty', () => {
+    expect(extractGeminiText({})).toBe('');
+    expect(
+      extractGeminiText({
+        candidates: [
+          {
+            content: { role: 'model', parts: [{ thought: true, thoughtSignature: 'only-signature' }] },
+            finishReason: 'MAX_TOKENS',
+          },
+        ],
+        usageMetadata: { thoughtsTokenCount: 500, candidatesTokenCount: 0 },
+      }),
+    ).toBe('');
+    expect(extractGeminiTextFromStreamBody('data: {"candidates":[{"content":{"parts":[]}}]}\n\n')).toBe('');
   });
 });

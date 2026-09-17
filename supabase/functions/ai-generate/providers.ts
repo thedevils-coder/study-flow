@@ -81,6 +81,101 @@ function fallbackGeminiChatModel(currentModel: string, errorText: string) {
   return DEFAULT_GEMINI_CHAT_MODEL;
 }
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+}
+
+function geminiPartText(part: Record<string, unknown>, includeThought: boolean) {
+  if (part.thought === true && !includeThought) return '';
+  if (typeof part.text === 'string' && part.text) return part.text;
+  const executable = asRecord(part.executableCode) ?? asRecord(part.executable_code);
+  if (typeof executable?.code === 'string' && executable.code) return executable.code;
+  const executed = asRecord(part.codeExecutionResult) ?? asRecord(part.code_execution_result);
+  if (typeof executed?.output === 'string' && executed.output) return executed.output;
+  return '';
+}
+
+function collectGeminiParts(payload: Record<string, unknown>) {
+  const candidates = Array.isArray(payload.candidates) ? payload.candidates : [];
+  const parts: Record<string, unknown>[] = [];
+  for (const candidate of candidates) {
+    const record = asRecord(candidate);
+    if (!record) continue;
+    const content = record.content;
+    const contents = Array.isArray(content)
+      ? content
+      : content
+        ? [content]
+        : Array.isArray(record.parts)
+          ? [record]
+          : [];
+    for (const item of contents) {
+      const contentRecord = asRecord(item);
+      if (!contentRecord) continue;
+      const rawParts = contentRecord.parts;
+      if (Array.isArray(rawParts)) {
+        for (const part of rawParts) {
+          const partRecord = asRecord(part);
+          if (partRecord) parts.push(partRecord);
+        }
+      } else if (typeof contentRecord.text === 'string') {
+        parts.push(contentRecord);
+      }
+    }
+  }
+  return parts;
+}
+
+function extractGeminiText(data: unknown): string {
+  const payloads = Array.isArray(data) ? data : data ? [data] : [];
+  const visible: string[] = [];
+  const thought: string[] = [];
+  for (const payload of payloads) {
+    const record = asRecord(payload);
+    if (!record) continue;
+    if (typeof record.text === 'string' && record.text.trim() && !record.candidates) {
+      visible.push(record.text);
+      continue;
+    }
+    for (const part of collectGeminiParts(record)) {
+      const answer = geminiPartText(part, false);
+      if (answer) {
+        visible.push(answer);
+        continue;
+      }
+      const thoughtText = geminiPartText(part, true);
+      if (part.thought === true && thoughtText) thought.push(thoughtText);
+    }
+  }
+  return (visible.join('') || thought.join('\n')).trim();
+}
+
+function extractGeminiTextFromStreamBody(raw: string) {
+  const text = raw.replace(/\r\n/g, '\n');
+  const chunks: string[] = [];
+  const looksLikeSse = /(?:^|\n)data:/.test(text);
+  if (looksLikeSse) {
+    for (const block of `${text}\n\n`.split('\n\n')) {
+      const line = block.split('\n').find((item) => item.startsWith('data:'));
+      if (!line) continue;
+      const payload = line.slice(5).trim();
+      if (!payload || payload === '[DONE]') continue;
+      try {
+        const delta = extractGeminiText(JSON.parse(payload));
+        if (delta) chunks.push(delta);
+      } catch {
+        // ignore malformed stream chunks
+      }
+    }
+    if (chunks.length) return chunks.join('').trim();
+  }
+  try {
+    return extractGeminiText(JSON.parse(text));
+  } catch {
+    return chunks.join('').trim();
+  }
+}
+
 async function readError(response: Response) {
   return redact(await response.text());
 }
@@ -221,10 +316,7 @@ export async function chatGemini(input: {
 
   if (!input.stream) {
     const data = (await response.json()) as Record<string, unknown>;
-    const candidate = Array.isArray(data.candidates) ? (data.candidates[0] as Record<string, unknown> | undefined) : undefined;
-    const content = candidate?.content as { parts?: Array<{ text?: string }> } | undefined;
-    const answer = (content?.parts ?? []).map((part) => part.text || '').join('\n').trim();
-    return { answer, chunks: collectSources(data) };
+    return { answer: extractGeminiText(data), chunks: collectSources(data) };
   }
 
   if (!response.body) {
@@ -233,23 +325,24 @@ export async function chatGemini(input: {
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
+  let raw = '';
   let buffer = '';
   let answer = '';
   let chunks: unknown[] = [];
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const partsSse = buffer.split('\n\n');
+    const piece = decoder.decode(value, { stream: true });
+    raw += piece;
+    buffer += piece;
+    const partsSse = buffer.replace(/\r\n/g, '\n').split('\n\n');
     buffer = partsSse.pop() ?? '';
     for (const part of partsSse) {
       const line = part.split('\n').find((item) => item.startsWith('data:'));
       if (!line) continue;
       try {
         const json = JSON.parse(line.slice(5).trim()) as Record<string, unknown>;
-        const candidate = Array.isArray(json.candidates) ? (json.candidates[0] as Record<string, unknown> | undefined) : undefined;
-        const content = candidate?.content as { parts?: Array<{ text?: string }> } | undefined;
-        const delta = (content?.parts ?? []).map((item) => item.text || '').join('');
+        const delta = extractGeminiText(json);
         if (delta) {
           answer += delta;
           input.onDelta?.(delta);
@@ -261,7 +354,23 @@ export async function chatGemini(input: {
       }
     }
   }
-  return { answer: answer.trim(), chunks };
+  const tail = decoder.decode();
+  if (tail) {
+    raw += tail;
+    buffer += tail;
+  }
+  if (buffer.trim()) {
+    const leftover = extractGeminiTextFromStreamBody(buffer);
+    if (leftover && !answer.includes(leftover)) {
+      answer += leftover;
+      input.onDelta?.(leftover);
+    }
+  }
+  answer = answer.trim() || extractGeminiTextFromStreamBody(raw);
+  if (!answer) {
+    return chatGemini({ ...input, model, stream: false });
+  }
+  return { answer, chunks };
 }
 
 export async function generateOpenAiImage(input: {
