@@ -2,11 +2,12 @@ import type { AiKind } from '@/types';
 
 import type { AiMode, ChatMessage, DetailLevel, RouteDecision } from '@/lib/ai-types';
 
+import { lengthInstruction } from '@/lib/ai-length';
+
 const SHORT_RE =
   /\b(briefly|short|quick answer|only the answer|just the answer|in one sentence|tl;dr|tldr|concise|summarize this briefly)\b/i;
 const DETAILED_RE =
-  /\b(in detail|detailed|deeply|full explanation|exam notes|revision notes|step by step|step-by-step|teach me from beginner|comprehensive|long answer)\b/i;
-const SIMPLE_RE = /\b(simpler|simple|beginner|like i(?:'|’)m \d+|eli5|explain simply)\b/i;
+  /\b(in detail|detailed|deeply|full explanation|complete explanation|exam notes|revision notes|step by step|step-by-step|teach me from beginner|comprehensive|long answer|in depth|in-depth|thoroughly)\b/i;
 
 const RESEARCH_RE =
   /\b(latest|current|recent|today|this year|202[5-9]|developments?|news|statistics?|verify|according to (?:sources|research)|look up|search|google|what(?:'|’)s new)\b/i;
@@ -29,8 +30,6 @@ export function detectDetailLevel(prompt: string, fallback: DetailLevel = 'balan
   if (SHORT_RE.test(text) && !DETAILED_RE.test(text)) return 'short';
   if (/\bdefine\b/i.test(text) && !DETAILED_RE.test(text) && text.split(/\s+/).length < 12) return 'short';
   if (DETAILED_RE.test(text)) return 'detailed';
-  if (SIMPLE_RE.test(text) && !DETAILED_RE.test(text)) return 'balanced';
-  if (/^explain\b/i.test(text) && !DETAILED_RE.test(text) && !SHORT_RE.test(text)) return 'balanced';
   return fallback;
 }
 
@@ -123,12 +122,7 @@ export function classifyRequest(
 }
 
 export function directiveFor(mode: AiMode, detailLevel: DetailLevel) {
-  const length =
-    detailLevel === 'short'
-      ? 'Keep the answer short and direct. Prefer a few sentences unless a list is clearly needed.'
-      : detailLevel === 'detailed'
-        ? 'Give a thorough, structured explanation with headings, examples and a short recap.'
-        : 'Give a clear balanced explanation. Do not pad the answer.';
+  const length = lengthInstruction(detailLevel);
 
   if (mode === 'image') {
     return 'Create a precise educational image prompt from the conversation topic. Do not invent a different subject.';
