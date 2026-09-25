@@ -3,7 +3,11 @@ export function configuredSecret(value: string | null | undefined) {
   return trimmed ? trimmed : undefined;
 }
 
+<<<<<<< HEAD
 /** Current Gemini Flash model. 2.0 Flash was shut down; 2.5 Flash is unavailable to this project. */
+=======
+/** Current Gemini Flash model. gemini-2.0-flash was shut down 1 June 2026. */
+>>>>>>> 70da7110be9a1012abf055f65956d36dc83b66ee
 export const DEFAULT_GEMINI_CHAT_MODEL = 'gemini-3.6-flash';
 export const SHUT_DOWN_GEMINI_CHAT_MODELS = [
   'gemini-2.0-flash',
@@ -124,10 +128,13 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 function geminiPartText(part: Record<string, unknown>, includeThought: boolean) {
   if (part.thought === true && !includeThought) return '';
   if (typeof part.text === 'string' && part.text) return part.text;
+<<<<<<< HEAD
   const executable = asRecord(part.executableCode) ?? asRecord(part.executable_code);
   if (typeof executable?.code === 'string' && executable.code) return executable.code;
   const executed = asRecord(part.codeExecutionResult) ?? asRecord(part.code_execution_result);
   if (typeof executed?.output === 'string' && executed.output) return executed.output;
+=======
+>>>>>>> 70da7110be9a1012abf055f65956d36dc83b66ee
   return '';
 }
 
@@ -163,7 +170,14 @@ function collectGeminiParts(payload: Record<string, unknown>) {
 }
 
 /** Visible text from a Gemini generateContent / streamGenerateContent payload. */
+<<<<<<< HEAD
 export function extractGeminiText(data: unknown): string {
+=======
+export function extractGeminiText(
+  data: unknown,
+  options: { includeThoughtFallback?: boolean } = {},
+): string {
+>>>>>>> 70da7110be9a1012abf055f65956d36dc83b66ee
   const payloads = Array.isArray(data) ? data : data ? [data] : [];
   const visible: string[] = [];
   const thought: string[] = [];
@@ -184,7 +198,14 @@ export function extractGeminiText(data: unknown): string {
       if (part.thought === true && thoughtText) thought.push(thoughtText);
     }
   }
+<<<<<<< HEAD
   return (visible.join('') || thought.join('\n')).trim();
+=======
+  const visibleText = visible.join('');
+  if (visibleText.trim()) return visibleText;
+  if (options.includeThoughtFallback === false) return '';
+  return thought.join('\n');
+>>>>>>> 70da7110be9a1012abf055f65956d36dc83b66ee
 }
 
 export function extractGeminiTextFromStreamBody(raw: string) {
@@ -198,7 +219,11 @@ export function extractGeminiTextFromStreamBody(raw: string) {
       const payload = line.slice(5).trim();
       if (!payload || payload === '[DONE]') continue;
       try {
+<<<<<<< HEAD
         const delta = extractGeminiText(JSON.parse(payload));
+=======
+        const delta = extractGeminiText(JSON.parse(payload), { includeThoughtFallback: false });
+>>>>>>> 70da7110be9a1012abf055f65956d36dc83b66ee
         if (delta) chunks.push(delta);
       } catch {
         // ignore malformed stream chunks
@@ -207,7 +232,11 @@ export function extractGeminiTextFromStreamBody(raw: string) {
     if (chunks.length) return chunks.join('').trim();
   }
   try {
+<<<<<<< HEAD
     return extractGeminiText(JSON.parse(text));
+=======
+    return extractGeminiText(JSON.parse(text)).trim();
+>>>>>>> 70da7110be9a1012abf055f65956d36dc83b66ee
   } catch {
     return chunks.join('').trim();
   }

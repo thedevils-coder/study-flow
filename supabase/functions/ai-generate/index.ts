@@ -53,15 +53,17 @@ const fail = (status: number, error: string, code: string, details?: Record<stri
 
 function detectDetailLevel(prompt: string, fallback: DetailLevel = 'balanced'): DetailLevel {
   const text = prompt.trim();
+  const detailed =
+    /\b(in detail|detailed|deeply|full explanation|complete explanation|exam notes|revision notes|step by step|step-by-step|teach me from beginner|comprehensive|long answer|in depth|in-depth|thoroughly)\b/i.test(
+      text,
+    );
   const short =
-    /\b(briefly|short|quick answer|only the answer|just the answer|in one sentence|tl;dr|tldr|concise)\b/i.test(text) ||
-    (/\bdefine\b/i.test(text) && !/\b(in detail|detailed|deeply)\b/i.test(text) && text.split(/\s+/).length < 12);
-  const detailed = /\b(in detail|detailed|deeply|full explanation|exam notes|revision notes|step by step|step-by-step|comprehensive)\b/i.test(
-    text,
-  );
+    /\b(briefly|short|quick answer|only the answer|just the answer|in one sentence|tl;dr|tldr|concise|summarize this briefly)\b/i.test(
+      text,
+    ) ||
+    (/\bdefine\b/i.test(text) && !detailed && text.split(/\s+/).length < 12);
   if (short && !detailed) return 'short';
   if (detailed) return 'detailed';
-  if (/\b(simpler|simple|beginner|eli5|explain simply)\b/i.test(text) && !detailed) return 'balanced';
   return fallback;
 }
 
@@ -112,9 +114,31 @@ function responseTypeFor(mode: AiMode): ResponseType {
 }
 
 function lengthInstruction(detailLevel: DetailLevel) {
-  if (detailLevel === 'short') return 'Keep the answer short and direct.';
-  if (detailLevel === 'detailed') return 'Give a thorough structured explanation with headings, examples and a recap.';
-  return 'Give a clear balanced explanation. Do not pad the answer.';
+  if (detailLevel === 'short') {
+    return [
+      'Response length: SHORT.',
+      'Give a concise answer that directly addresses the question.',
+      'Normally use 1-3 short paragraphs or a small bullet list.',
+      'Do not expand into extra background, recap sections, or padding.',
+    ].join(' ');
+  }
+  if (detailLevel === 'detailed') {
+    return [
+      'Response length: DETAILED.',
+      'Give a genuinely thorough explanation.',
+      'Cover the important concepts step-by-step.',
+      'Include examples, explanations, caveats, and practical details when they help the student.',
+      'Do not intentionally keep the answer short.',
+      'If the question is broad, write a substantial answer rather than a summary.',
+    ].join(' ');
+  }
+  return [
+    'Response length: BALANCED.',
+    'Give a normal helpful study-assistant answer.',
+    'Explain the important points and include examples when useful.',
+    'Normally use about 4-8 paragraphs or bullets depending on the question.',
+    'Do not shrink this into a short summary, and do not pad with filler.',
+  ].join(' ');
 }
 
 function loadingLabel(mode: AiMode, detailLevel: DetailLevel) {
@@ -172,10 +196,15 @@ function packMessages(history: ChatTurn[], prompt: string) {
   return messages;
 }
 
-function maxTokens(tier: string, mode: AiMode, detailLevel: DetailLevel) {
-  if (mode === 'pdf' || mode === 'notes' || mode === 'detailed_answer') return tier === 'pro' ? 2500 : 1200;
-  if (detailLevel === 'short' || mode === 'fast_answer') return 500;
-  return tier === 'pro' ? 1600 : 800;
+function maxTokens(_tier: string, mode: AiMode, detailLevel: DetailLevel) {
+  if (mode === 'pdf' || mode === 'notes') return 32768;
+  if (detailLevel === 'short') return 8192;
+  if (detailLevel === 'detailed' || mode === 'detailed_answer') return 32768;
+  return 16384;
+}
+
+function thinkingLevel(detailLevel: DetailLevel): 'low' | 'medium' {
+  return detailLevel === 'short' ? 'low' : 'medium';
 }
 
 const sendSse = (event: string, data: unknown) =>
@@ -352,6 +381,7 @@ Deno.serve(async (request) => {
           packed,
           withSearch: research.withSearch,
           maxTokens: maxTokens(tier, route.mode, route.detailLevel),
+          thinkingLevel: thinkingLevel(route.detailLevel),
           stream: Boolean(onDelta),
           onDelta,
         });
@@ -375,6 +405,7 @@ Deno.serve(async (request) => {
             packed,
             attachments,
             maxTokens: maxTokens(tier, route.mode, route.detailLevel),
+            thinkingLevel: thinkingLevel(route.detailLevel),
             stream: Boolean(onDelta),
             onDelta,
           });
@@ -474,6 +505,7 @@ Deno.serve(async (request) => {
                 system,
                 packed,
                 maxTokens: maxTokens(tier, route.mode, route.detailLevel),
+                thinkingLevel: thinkingLevel(route.detailLevel),
               })
             ).answer;
         if (!documentText.trim()) {
@@ -507,6 +539,7 @@ Deno.serve(async (request) => {
             packed,
             withSearch: false,
             maxTokens: maxTokens(tier, route.mode, route.detailLevel),
+            thinkingLevel: thinkingLevel(route.detailLevel),
             stream: Boolean(onDelta),
             onDelta,
           });

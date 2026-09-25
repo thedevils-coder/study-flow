@@ -1,8 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import { sanitizeArtifacts } from '@/lib/ai-artifacts';
+<<<<<<< HEAD
 import { configuredSecret, DEFAULT_GEMINI_CHAT_MODEL, DEFAULT_GEMINI_IMAGE_MODEL, extractGeminiText, extractGeminiTextFromStreamBody, fallbackGeminiChatModel, formatGeminiProviderError, geminiImageQuotaMessage, imageActionAfterGeminiError, isGeminiQuotaError, resolveGeminiChatModel, selectResearchProvider, selectTextChatProvider, SHUT_DOWN_GEMINI_CHAT_MODELS, summarizeGeminiError } from '@/lib/ai-provider';
+=======
+import { configuredSecret, DEFAULT_GEMINI_CHAT_MODEL, extractGeminiText, extractGeminiTextFromStreamBody, formatGeminiProviderError, resolveGeminiChatModel, selectResearchProvider, selectTextChatProvider, SHUT_DOWN_GEMINI_CHAT_MODELS, summarizeGeminiError } from '@/lib/ai-provider';
+>>>>>>> 70da7110be9a1012abf055f65956d36dc83b66ee
 import { packConversation } from '@/lib/ai-context';
+import { DEFAULT_GEMINI_THINKING_LEVEL, geminiGenerationConfig, geminiMaxOutputTokens, geminiThinkingLevel, lengthInstruction } from '@/lib/ai-length';
 import { errorFromAiFailure } from '@/lib/ai-errors';
 import { classifyRequest, detectDetailLevel, isFollowUp, isTopicChange } from '@/lib/ai-router';
 import { conversationForRetry } from '@/lib/ai-retry';
@@ -42,10 +47,15 @@ describe('Leo routing and detail', () => {
     expect(classifyRequest('Explain photosynthesis.').mode).toBe('fast_answer');
   });
 
-  it('uses a detailed answer when asked', () => {
+  it('uses a detailed answer when asked or when Detailed is selected', () => {
     expect(detectDetailLevel('Explain photosynthesis in detail for my exam.')).toBe('detailed');
     expect(classifyRequest('Explain this deeply.').mode).toBe('detailed_answer');
-    expect(classifyRequest('Explain simply', { preferredDetail: 'detailed' }).detailLevel).toBe('balanced');
+    expect(classifyRequest('Give a complete explanation of HTML.', { preferredDetail: 'balanced' }).detailLevel).toBe(
+      'detailed',
+    );
+    expect(classifyRequest('Explain photosynthesis.', { preferredDetail: 'detailed' }).detailLevel).toBe('detailed');
+    expect(classifyRequest('Explain photosynthesis.', { preferredDetail: 'detailed' }).mode).toBe('detailed_answer');
+    expect(classifyRequest('Explain simply', { preferredDetail: 'detailed' }).detailLevel).toBe('detailed');
   });
 
   it('lets natural language override the default selector', () => {
@@ -293,6 +303,7 @@ describe('Gemini fallback for normal Leo chat', () => {
     if (missing.provider === 'none') expect(missing.code).toBe('ai_not_configured');
   });
 
+<<<<<<< HEAD
   it('uses gemini-3.6-flash for Gemini-only normal chat', () => {
     expect(selectTextChatProvider({ openaiKey: null, geminiKey: 'configured' })).toEqual({
       provider: 'gemini',
@@ -319,6 +330,16 @@ describe('Gemini fallback for normal Leo chat', () => {
     expect(fallbackGeminiChatModel('gemini-2.0-flash', unavailable)).toBe('gemini-3.6-flash');
     expect(fallbackGeminiChatModel('gemini-3.6-flash', unavailable)).toBeUndefined();
     expect(fallbackGeminiChatModel('gemini-2.5-flash', '{"error":{"status":"RESOURCE_EXHAUSTED"}}')).toBeUndefined();
+=======
+  it('does not use the shut-down gemini-2.0-flash model for "What is Html"', () => {
+    expect(classifyRequest('What is Html').mode).toBe('fast_answer');
+    expect(classifyRequest('What is Html').needsResearch).toBe(false);
+    expect(SHUT_DOWN_GEMINI_CHAT_MODELS).toContain('gemini-2.0-flash');
+    expect(resolveGeminiChatModel(undefined)).toBe('gemini-3.6-flash');
+    expect(resolveGeminiChatModel('gemini-2.0-flash')).toBe('gemini-3.6-flash');
+    expect(DEFAULT_GEMINI_CHAT_MODEL).toBe('gemini-3.6-flash');
+    expect(selectTextChatProvider({ geminiKey: 'configured' }).withSearch).toBe(false);
+>>>>>>> 70da7110be9a1012abf055f65956d36dc83b66ee
   });
 
   it('surfaces the real Gemini NOT_FOUND body instead of a generic chat failure', async () => {
@@ -350,6 +371,7 @@ describe('Gemini fallback for normal Leo chat', () => {
   });
 });
 
+<<<<<<< HEAD
 describe('Gemini 3.6 Flash response parsing', () => {
   const htmlAnswer = 'HTML is the standard language for structuring web pages.';
 
@@ -403,10 +425,125 @@ describe('Gemini 3.6 Flash response parsing', () => {
 
   it('keeps genuinely empty Gemini responses empty', () => {
     expect(extractGeminiText({})).toBe('');
+=======
+describe('Leo response length modes', () => {
+  it('instructs Short mode to stay concise without a hard word count', () => {
+    const instruction = lengthInstruction('short');
+    expect(instruction).toMatch(/SHORT/);
+    expect(instruction).toMatch(/1-3 short paragraphs/);
+    expect(instruction).not.toMatch(/\b\d+\s+words?\b/i);
+    expect(classifyRequest('What is mitosis?', { preferredDetail: 'short' }).detailLevel).toBe('short');
+    expect(classifyRequest('What is mitosis?', { preferredDetail: 'short' }).mode).toBe('fast_answer');
+    expect(classifyRequest('What is mitosis?', { preferredDetail: 'short' }).systemDirective).toBe(instruction);
+    expect(geminiMaxOutputTokens('short')).toBe(8192);
+    expect(geminiThinkingLevel('short')).toBe('low');
+  });
+
+  it('instructs Balanced mode to give a normal study-assistant answer', () => {
+    const instruction = lengthInstruction('balanced');
+    expect(instruction).toMatch(/BALANCED/);
+    expect(instruction).toMatch(/4-8 paragraphs/);
+    expect(instruction).toMatch(/Do not shrink this into a short summary/);
+    expect(instruction).not.toMatch(/\b\d+\s+words?\b/i);
+    expect(classifyRequest('What is mitosis?', { preferredDetail: 'balanced' }).detailLevel).toBe('balanced');
+    expect(classifyRequest('What is mitosis?', { preferredDetail: 'balanced' }).mode).toBe('fast_answer');
+    expect(classifyRequest('What is mitosis?', { preferredDetail: 'balanced' }).systemDirective).toBe(instruction);
+    expect(geminiMaxOutputTokens('balanced')).toBe(16384);
+    expect(geminiThinkingLevel('balanced')).toBe(DEFAULT_GEMINI_THINKING_LEVEL);
+    expect(geminiThinkingLevel('balanced')).toBe('medium');
+  });
+
+  it('instructs Detailed mode to write a thorough answer instead of a summary', () => {
+    const instruction = lengthInstruction('detailed');
+    expect(instruction).toMatch(/DETAILED/);
+    expect(instruction).toMatch(/genuinely thorough/);
+    expect(instruction).toMatch(/Do not intentionally keep the answer short/);
+    expect(instruction).toMatch(/substantial answer rather than a summary/);
+    expect(instruction).not.toMatch(/\b\d+\s+words?\b/i);
+    expect(classifyRequest('What is mitosis?', { preferredDetail: 'detailed' }).detailLevel).toBe('detailed');
+    expect(classifyRequest('What is mitosis?', { preferredDetail: 'detailed' }).mode).toBe('detailed_answer');
+    expect(classifyRequest('What is mitosis?', { preferredDetail: 'detailed' }).systemDirective).toBe(instruction);
+    expect(geminiMaxOutputTokens('detailed')).toBe(32768);
+    expect(geminiMaxOutputTokens('balanced', 'detailed_answer')).toBe(32768);
+    expect(geminiMaxOutputTokens('balanced', 'pdf')).toBe(32768);
+    expect(geminiThinkingLevel('detailed')).toBe('medium');
+  });
+
+  it('treats explicit “explain in detail” language as Detailed even if Short is selected', () => {
+    expect(detectDetailLevel('Explain photosynthesis in detail.', 'short')).toBe('detailed');
+    expect(classifyRequest('Explain in detail.', { preferredDetail: 'short' }).detailLevel).toBe('detailed');
+    expect(classifyRequest('Give a complete explanation of osmosis.', { preferredDetail: 'balanced' }).mode).toBe(
+      'detailed_answer',
+    );
+    expect(classifyRequest('Teach me from beginner how DNA replication works.', { preferredDetail: 'balanced' }).detailLevel).toBe(
+      'detailed',
+    );
+  });
+
+  it('keeps the selected length on follow-up questions unless the user overrides it', () => {
+    const prior = history();
+    expect(classifyRequest('Give me an example.', { preferredDetail: 'detailed', history: prior }).detailLevel).toBe(
+      'detailed',
+    );
+    expect(classifyRequest('What are its main applications?', { preferredDetail: 'detailed', history: prior }).mode).toBe(
+      'detailed_answer',
+    );
+    expect(classifyRequest('Give me an example.', { preferredDetail: 'short', history: prior }).detailLevel).toBe('short');
+    expect(classifyRequest('Expand that.', { preferredDetail: 'balanced', history: prior }).detailLevel).toBe('balanced');
+    expect(classifyRequest('Explain that in detail.', { preferredDetail: 'short', history: prior }).detailLevel).toBe(
+      'detailed',
+    );
+  });
+
+  it('leaves enough maxOutputTokens for Gemini 3.x thinking plus the visible answer', () => {
+    expect(geminiMaxOutputTokens('short')).toBeGreaterThanOrEqual(8192);
+    expect(geminiMaxOutputTokens('balanced')).toBeGreaterThan(geminiMaxOutputTokens('short'));
+    expect(geminiMaxOutputTokens('detailed')).toBeGreaterThan(geminiMaxOutputTokens('balanced'));
+    expect(geminiMaxOutputTokens('detailed')).toBeLessThanOrEqual(65536);
+    const config = geminiGenerationConfig(geminiMaxOutputTokens('detailed'), geminiThinkingLevel('detailed'));
+    expect(config.maxOutputTokens).toBe(32768);
+    expect(config.thinkingConfig.thinkingLevel).toBe('medium');
+    expect(config.thinkingConfig.includeThoughts).toBe(false);
+    expect(config).not.toHaveProperty('temperature');
+    expect(config).not.toHaveProperty('stopSequences');
+    expect(geminiGenerationConfig(8192, 'low').thinkingConfig.thinkingLevel).toBe('low');
+  });
+});
+
+describe('Gemini response parser', () => {
+  const thoughtAndAnswer = {
+    candidates: [
+      {
+        content: {
+          parts: [
+            { thought: true, text: 'I should plan a long answer.' },
+            { text: 'Visible paragraph one. ' },
+            { text: 'Visible paragraph two.' },
+          ],
+        },
+        finishReason: 'STOP',
+      },
+    ],
+  };
+
+  it('prefers non-thought text and concatenates long Gemini answers', () => {
+    const longAnswer = Array.from({ length: 40 }, (_, index) => `Paragraph ${index + 1} about mitosis.`).join(' ');
+    expect(extractGeminiText(thoughtAndAnswer)).toBe('Visible paragraph one. Visible paragraph two.');
+    expect(
+      extractGeminiText({
+        candidates: [{ content: { parts: [{ text: longAnswer }] }, finishReason: 'STOP' }],
+      }),
+    ).toBe(longAnswer);
+  });
+
+  it('keeps the visible text when Gemini stops because of MAX_TOKENS', () => {
+    const truncated = 'This thorough explanation was cut off mid-sentence because';
+>>>>>>> 70da7110be9a1012abf055f65956d36dc83b66ee
     expect(
       extractGeminiText({
         candidates: [
           {
+<<<<<<< HEAD
             content: { role: 'model', parts: [{ thought: true, thoughtSignature: 'only-signature' }] },
             finishReason: 'MAX_TOKENS',
           },
@@ -478,5 +615,56 @@ describe('Gemini image quota handling', () => {
         openaiImageKey: 'sk-test',
       }),
     ).toBe('rethrow');
+=======
+            content: {
+              parts: [{ thought: true, text: 'thinking that used many tokens' }, { text: truncated }],
+            },
+            finishReason: 'MAX_TOKENS',
+          },
+        ],
+      }),
+    ).toBe(truncated);
+  });
+
+  it('parses leftover SSE data and JSON-array stream bodies', () => {
+    const leftover = 'data: {"candidates":[{"content":{"parts":[{"text":"Tail of the answer."}]}}]}';
+    expect(extractGeminiTextFromStreamBody(leftover)).toBe('Tail of the answer.');
+
+    const sse = [
+      'data: {"candidates":[{"content":{"parts":[{"thought":true,"text":"plan"}]}}]}',
+      '',
+      'data: {"candidates":[{"content":{"parts":[{"text":"First chunk. "}]}}]}',
+      '',
+      leftover,
+    ].join('\n');
+    expect(extractGeminiTextFromStreamBody(sse)).toBe('First chunk. Tail of the answer.');
+
+    const arrayBody = JSON.stringify([
+      { candidates: [{ content: { parts: [{ text: 'Array part one. ' }] } }] },
+      { candidates: [{ content: { parts: [{ thought: true, text: 'hidden' }, { text: 'Array part two.' }] } }] },
+    ]);
+    expect(extractGeminiTextFromStreamBody(arrayBody)).toBe('Array part one. Array part two.');
+  });
+
+  it('falls back to thought text only when a complete payload has no visible answer', () => {
+    expect(
+      extractGeminiText({
+        candidates: [{ content: { parts: [{ thought: true, text: 'only thinking' }] } }],
+      }).trim(),
+    ).toBe('only thinking');
+    expect(
+      extractGeminiText(
+        { candidates: [{ content: { parts: [{ thought: true, text: 'only thinking' }] } }] },
+        { includeThoughtFallback: false },
+      ),
+    ).toBe('');
+  });
+
+  it('falls back to a non-stream generateContent payload', () => {
+    expect(extractGeminiText(thoughtAndAnswer)).toContain('Visible paragraph');
+    expect(extractGeminiTextFromStreamBody(JSON.stringify(thoughtAndAnswer))).toBe(
+      'Visible paragraph one. Visible paragraph two.',
+    );
+>>>>>>> 70da7110be9a1012abf055f65956d36dc83b66ee
   });
 });
