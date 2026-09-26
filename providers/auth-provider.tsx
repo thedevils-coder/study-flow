@@ -15,6 +15,7 @@ import {
   type SubscriptionSnapshot,
 } from '@/services/subscriptions';
 import { applyTesterDemoAccess, isTesterBuildEnabled, isTesterEmail } from '@/lib/tester';
+import { leoSessionStore } from '@/services/leo-session';
 import type { ProductId, SubscriptionTier, UserSession } from '@/types';
 
 type AuthContextValue = {
@@ -93,8 +94,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       fromUrl(event.url).catch(() => undefined);
     });
 
-    const authSub = authService.onAuthChange((next) => {
-      if (!next) {
+    const authSub = authService.onAuthChange((next, event) => {
+      if (!next || event === 'SIGNED_OUT') {
+        void leoSessionStore.clearShared();
         setSession(null);
         return;
       }
@@ -152,11 +154,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       async signOut() {
         await authService.signOut();
+        await leoSessionStore.clearShared();
         setSession(null);
       },
 
       async deleteAccount() {
         await authService.deleteAccount();
+        await leoSessionStore.clearShared();
         setSession(null);
       },
 
