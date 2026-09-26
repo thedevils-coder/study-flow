@@ -3,11 +3,7 @@ export function configuredSecret(value: string | null | undefined) {
   return trimmed ? trimmed : undefined;
 }
 
-<<<<<<< HEAD
 /** Current Gemini Flash model. 2.0 Flash was shut down; 2.5 Flash is unavailable to this project. */
-=======
-/** Current Gemini Flash model. gemini-2.0-flash was shut down 1 June 2026. */
->>>>>>> 70da7110be9a1012abf055f65956d36dc83b66ee
 export const DEFAULT_GEMINI_CHAT_MODEL = 'gemini-3.6-flash';
 export const SHUT_DOWN_GEMINI_CHAT_MODELS = [
   'gemini-2.0-flash',
@@ -57,10 +53,22 @@ export function summarizeGeminiError(raw: string) {
   const redacted = redactProviderText(raw).trim();
   if (!redacted) return '';
   try {
-    const parsed = JSON.parse(redacted) as { error?: { status?: string; code?: string | number; message?: string }; status?: string; code?: string | number; message?: string };
+    const parsed = JSON.parse(redacted) as {
+      error?: {
+        status?: string;
+        code?: string | number;
+        message?: string;
+      };
+      status?: string;
+      code?: string | number;
+      message?: string;
+    };
     const err = parsed.error ?? parsed;
     const status = err.status || (typeof err.code === 'string' ? err.code : undefined);
-    const message = typeof err.message === 'string' ? err.message.replace(/\s+/g, ' ').trim() : '';
+    const message =
+      typeof err.message === 'string'
+        ? err.message.replace(/\s+/g, ' ').trim()
+        : '';
     if (message) return `${status ? `${status}: ` : ''}${message}`.slice(0, 220);
   } catch {
     // Fall through to a compact raw snippet.
@@ -122,28 +130,34 @@ export function resolveGeminiChatModel(configured?: string | null) {
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
 }
 
 function geminiPartText(part: Record<string, unknown>, includeThought: boolean) {
   if (part.thought === true && !includeThought) return '';
   if (typeof part.text === 'string' && part.text) return part.text;
-<<<<<<< HEAD
-  const executable = asRecord(part.executableCode) ?? asRecord(part.executable_code);
+
+  const executable =
+    asRecord(part.executableCode) ?? asRecord(part.executable_code);
   if (typeof executable?.code === 'string' && executable.code) return executable.code;
-  const executed = asRecord(part.codeExecutionResult) ?? asRecord(part.code_execution_result);
+
+  const executed =
+    asRecord(part.codeExecutionResult) ?? asRecord(part.code_execution_result);
   if (typeof executed?.output === 'string' && executed.output) return executed.output;
-=======
->>>>>>> 70da7110be9a1012abf055f65956d36dc83b66ee
+
   return '';
 }
 
 function collectGeminiParts(payload: Record<string, unknown>) {
   const candidates = Array.isArray(payload.candidates) ? payload.candidates : [];
   const parts: Record<string, unknown>[] = [];
+
   for (const candidate of candidates) {
     const record = asRecord(candidate);
     if (!record) continue;
+
     const content = record.content;
     const contents = Array.isArray(content)
       ? content
@@ -152,10 +166,13 @@ function collectGeminiParts(payload: Record<string, unknown>) {
         : Array.isArray(record.parts)
           ? [record]
           : [];
+
     for (const item of contents) {
       const contentRecord = asRecord(item);
       if (!contentRecord) continue;
+
       const rawParts = contentRecord.parts;
+
       if (Array.isArray(rawParts)) {
         for (const part of rawParts) {
           const partRecord = asRecord(part);
@@ -166,77 +183,78 @@ function collectGeminiParts(payload: Record<string, unknown>) {
       }
     }
   }
+
   return parts;
 }
 
 /** Visible text from a Gemini generateContent / streamGenerateContent payload. */
-<<<<<<< HEAD
-export function extractGeminiText(data: unknown): string {
-=======
 export function extractGeminiText(
   data: unknown,
   options: { includeThoughtFallback?: boolean } = {},
 ): string {
->>>>>>> 70da7110be9a1012abf055f65956d36dc83b66ee
   const payloads = Array.isArray(data) ? data : data ? [data] : [];
   const visible: string[] = [];
   const thought: string[] = [];
+
   for (const payload of payloads) {
     const record = asRecord(payload);
     if (!record) continue;
+
     if (typeof record.text === 'string' && record.text.trim() && !record.candidates) {
       visible.push(record.text);
       continue;
     }
+
     for (const part of collectGeminiParts(record)) {
       const answer = geminiPartText(part, false);
+
       if (answer) {
         visible.push(answer);
         continue;
       }
+
       const thoughtText = geminiPartText(part, true);
       if (part.thought === true && thoughtText) thought.push(thoughtText);
     }
   }
-<<<<<<< HEAD
-  return (visible.join('') || thought.join('\n')).trim();
-=======
+
   const visibleText = visible.join('');
+
   if (visibleText.trim()) return visibleText;
   if (options.includeThoughtFallback === false) return '';
+
   return thought.join('\n');
->>>>>>> 70da7110be9a1012abf055f65956d36dc83b66ee
 }
 
 export function extractGeminiTextFromStreamBody(raw: string) {
   const text = raw.replace(/\r\n/g, '\n');
   const chunks: string[] = [];
   const looksLikeSse = /(?:^|\n)data:/.test(text);
+
   if (looksLikeSse) {
     for (const block of `${text}\n\n`.split('\n\n')) {
       const line = block.split('\n').find((item) => item.startsWith('data:'));
       if (!line) continue;
+
       const payload = line.slice(5).trim();
       if (!payload || payload === '[DONE]') continue;
+
       try {
-<<<<<<< HEAD
-        const delta = extractGeminiText(JSON.parse(payload));
-=======
-        const delta = extractGeminiText(JSON.parse(payload), { includeThoughtFallback: false });
->>>>>>> 70da7110be9a1012abf055f65956d36dc83b66ee
+        const delta = extractGeminiText(JSON.parse(payload), {
+          includeThoughtFallback: false,
+        });
+
         if (delta) chunks.push(delta);
       } catch {
         // ignore malformed stream chunks
       }
     }
+
     if (chunks.length) return chunks.join('').trim();
   }
+
   try {
-<<<<<<< HEAD
-    return extractGeminiText(JSON.parse(text));
-=======
     return extractGeminiText(JSON.parse(text)).trim();
->>>>>>> 70da7110be9a1012abf055f65956d36dc83b66ee
   } catch {
     return chunks.join('').trim();
   }

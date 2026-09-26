@@ -1,11 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { sanitizeArtifacts } from '@/lib/ai-artifacts';
-<<<<<<< HEAD
-import { configuredSecret, DEFAULT_GEMINI_CHAT_MODEL, DEFAULT_GEMINI_IMAGE_MODEL, extractGeminiText, extractGeminiTextFromStreamBody, fallbackGeminiChatModel, formatGeminiProviderError, geminiImageQuotaMessage, imageActionAfterGeminiError, isGeminiQuotaError, resolveGeminiChatModel, selectResearchProvider, selectTextChatProvider, SHUT_DOWN_GEMINI_CHAT_MODELS, summarizeGeminiError } from '@/lib/ai-provider';
-=======
-import { configuredSecret, DEFAULT_GEMINI_CHAT_MODEL, extractGeminiText, extractGeminiTextFromStreamBody, formatGeminiProviderError, resolveGeminiChatModel, selectResearchProvider, selectTextChatProvider, SHUT_DOWN_GEMINI_CHAT_MODELS, summarizeGeminiError } from '@/lib/ai-provider';
->>>>>>> 70da7110be9a1012abf055f65956d36dc83b66ee
+import { configuredSecret, DEFAULT_GEMINI_CHAT_MODEL, fallbackGeminiChatModel, extractGeminiText, extractGeminiTextFromStreamBody, formatGeminiProviderError, resolveGeminiChatModel, selectResearchProvider, selectTextChatProvider, SHUT_DOWN_GEMINI_CHAT_MODELS, summarizeGeminiError } from '@/lib/ai-provider';
 import { packConversation } from '@/lib/ai-context';
 import { DEFAULT_GEMINI_THINKING_LEVEL, geminiGenerationConfig, geminiMaxOutputTokens, geminiThinkingLevel, lengthInstruction } from '@/lib/ai-length';
 import { errorFromAiFailure } from '@/lib/ai-errors';
@@ -235,7 +231,7 @@ describe('artifacts, retry, streaming, and failures', () => {
       ConfigurationError,
     );
     expect(errorFromAiFailure({ httpStatus: 402, code: 'payment_required', message: 'Upgrade required.' })).toBeInstanceOf(AccessError);
-    expect(errorFromAiFailure({ httpStatus: 429, code: 'rate_limited', message: 'You have reached todayâ€™s AI limit for your plan.' })).toBeInstanceOf(
+    expect(errorFromAiFailure({ httpStatus: 429, code: 'rate_limited', message: 'You have reached todayGÇÖs AI limit for your plan.' })).toBeInstanceOf(
       AccessError,
     );
 
@@ -252,7 +248,7 @@ describe('artifacts, retry, streaming, and failures', () => {
     expect(structured.code).toBe('invalid_request');
   });
 
-  it('counts only todayâ€™s successful generations in the AI Meter summary', () => {
+  it('counts only todayGÇÖs successful generations in the AI Meter summary', () => {
     const now = new Date('2026-09-17T12:00:00Z');
     const summary = summarizeDailyUsage(
       [
@@ -303,34 +299,6 @@ describe('Gemini fallback for normal Leo chat', () => {
     if (missing.provider === 'none') expect(missing.code).toBe('ai_not_configured');
   });
 
-<<<<<<< HEAD
-  it('uses gemini-3.6-flash for Gemini-only normal chat', () => {
-    expect(selectTextChatProvider({ openaiKey: null, geminiKey: 'configured' })).toEqual({
-      provider: 'gemini',
-      withSearch: false,
-    });
-    expect(classifyRequest('What is HTML?').mode).toBe('fast_answer');
-    expect(classifyRequest('What is HTML?').needsResearch).toBe(false);
-    expect(DEFAULT_GEMINI_CHAT_MODEL).toBe('gemini-3.6-flash');
-    expect(resolveGeminiChatModel(undefined)).toBe('gemini-3.6-flash');
-    expect(resolveGeminiChatModel('gemini-2.0-flash')).toBe('gemini-3.6-flash');
-    expect(resolveGeminiChatModel('gemini-2.5-flash')).toBe('gemini-3.6-flash');
-    expect(SHUT_DOWN_GEMINI_CHAT_MODELS).toEqual(expect.arrayContaining(['gemini-2.0-flash', 'gemini-2.5-flash']));
-  });
-
-  it('retries a model-not-found error once with gemini-3.6-flash', () => {
-    const unavailable = JSON.stringify({
-      error: {
-        code: 404,
-        message: 'This model models/gemini-2.5-flash is no longer available. Please update your code to use models/gemini-3.6-flash.',
-        status: 'NOT_FOUND',
-      },
-    });
-    expect(fallbackGeminiChatModel('gemini-2.5-flash', unavailable)).toBe('gemini-3.6-flash');
-    expect(fallbackGeminiChatModel('gemini-2.0-flash', unavailable)).toBe('gemini-3.6-flash');
-    expect(fallbackGeminiChatModel('gemini-3.6-flash', unavailable)).toBeUndefined();
-    expect(fallbackGeminiChatModel('gemini-2.5-flash', '{"error":{"status":"RESOURCE_EXHAUSTED"}}')).toBeUndefined();
-=======
   it('does not use the shut-down gemini-2.0-flash model for "What is Html"', () => {
     expect(classifyRequest('What is Html').mode).toBe('fast_answer');
     expect(classifyRequest('What is Html').needsResearch).toBe(false);
@@ -339,9 +307,22 @@ describe('Gemini fallback for normal Leo chat', () => {
     expect(resolveGeminiChatModel('gemini-2.0-flash')).toBe('gemini-3.6-flash');
     expect(DEFAULT_GEMINI_CHAT_MODEL).toBe('gemini-3.6-flash');
     expect(selectTextChatProvider({ geminiKey: 'configured' }).withSearch).toBe(false);
->>>>>>> 70da7110be9a1012abf055f65956d36dc83b66ee
   });
 
+  it('uses gemini-3.6-flash for Gemini-only normal chat', () => {
+    expect(resolveGeminiChatModel('gemini-3.6-flash')).toBe('gemini-3.6-flash');
+    expect(selectTextChatProvider({ geminiKey: 'configured' }).provider).toBe('gemini');
+    expect(selectTextChatProvider({ geminiKey: 'configured' }).withSearch).toBe(false);
+  });
+
+  it('retries a model-not-found error once with gemini-3.6-flash', () => {
+    expect(
+      fallbackGeminiChatModel(
+        'gemini-2.5-flash',
+        '{"error":{"code":404,"status":"NOT_FOUND","message":"model not found"}}',
+      ),
+    ).toBe('gemini-3.6-flash');
+  });
   it('surfaces the real Gemini NOT_FOUND body instead of a generic chat failure', async () => {
     const geminiBody = JSON.stringify({
       error: {
@@ -371,61 +352,6 @@ describe('Gemini fallback for normal Leo chat', () => {
   });
 });
 
-<<<<<<< HEAD
-describe('Gemini 3.6 Flash response parsing', () => {
-  const htmlAnswer = 'HTML is the standard language for structuring web pages.';
-
-  it('extracts visible text from a realistic Gemini 3.6 Flash generateContent response', () => {
-    const response = {
-      candidates: [
-        {
-          content: {
-            role: 'model',
-            parts: [
-              { thought: true, thoughtSignature: 'abc', text: 'The user asked what HTML is. I should give a short accurate definition.' },
-              { text: htmlAnswer },
-            ],
-          },
-          finishReason: 'STOP',
-          index: 0,
-        },
-      ],
-      usageMetadata: {
-        promptTokenCount: 48,
-        candidatesTokenCount: 16,
-        thoughtsTokenCount: 80,
-        totalTokenCount: 144,
-      },
-      modelVersion: 'gemini-3.6-flash',
-    };
-    expect(extractGeminiText(response)).toBe(htmlAnswer);
-  });
-
-  it('does not treat HTTP 200 thought+text stream chunks as empty', () => {
-    const sse = [
-      'data: {"candidates":[{"content":{"parts":[{"thought":true,"thoughtSignature":"sig"}]},"finishReason":"STOP"}]}',
-      '',
-      `data: {"candidates":[{"content":{"role":"model","parts":[{"text":"${htmlAnswer}"}]},"finishReason":"STOP"}]}`,
-    ].join('\n');
-    expect(extractGeminiTextFromStreamBody(sse)).toBe(htmlAnswer);
-  });
-
-  it('parses a trailing stream chunk that is missing the final blank line', () => {
-    const sse = `data: {"candidates":[{"content":{"parts":[{"text":"${htmlAnswer}"}]}}]}`;
-    expect(extractGeminiTextFromStreamBody(sse)).toBe(htmlAnswer);
-  });
-
-  it('parses a JSON array streamGenerateContent body', () => {
-    const body = JSON.stringify([
-      { candidates: [{ content: { parts: [{ thought: true, thoughtSignature: 'sig' }] } }] },
-      { candidates: [{ content: { parts: [{ text: htmlAnswer }] }, finishReason: 'STOP' }] },
-    ]);
-    expect(extractGeminiTextFromStreamBody(body)).toBe(htmlAnswer);
-  });
-
-  it('keeps genuinely empty Gemini responses empty', () => {
-    expect(extractGeminiText({})).toBe('');
-=======
 describe('Leo response length modes', () => {
   it('instructs Short mode to stay concise without a hard word count', () => {
     const instruction = lengthInstruction('short');
@@ -469,7 +395,7 @@ describe('Leo response length modes', () => {
     expect(geminiThinkingLevel('detailed')).toBe('medium');
   });
 
-  it('treats explicit â€œexplain in detailâ€ language as Detailed even if Short is selected', () => {
+  it('treats explicit GÇ£explain in detailGÇ¥ language as Detailed even if Short is selected', () => {
     expect(detectDetailLevel('Explain photosynthesis in detail.', 'short')).toBe('detailed');
     expect(classifyRequest('Explain in detail.', { preferredDetail: 'short' }).detailLevel).toBe('detailed');
     expect(classifyRequest('Give a complete explanation of osmosis.', { preferredDetail: 'balanced' }).mode).toBe(
@@ -538,84 +464,10 @@ describe('Gemini response parser', () => {
 
   it('keeps the visible text when Gemini stops because of MAX_TOKENS', () => {
     const truncated = 'This thorough explanation was cut off mid-sentence because';
->>>>>>> 70da7110be9a1012abf055f65956d36dc83b66ee
     expect(
       extractGeminiText({
         candidates: [
           {
-<<<<<<< HEAD
-            content: { role: 'model', parts: [{ thought: true, thoughtSignature: 'only-signature' }] },
-            finishReason: 'MAX_TOKENS',
-          },
-        ],
-        usageMetadata: { thoughtsTokenCount: 500, candidatesTokenCount: 0 },
-      }),
-    ).toBe('');
-    expect(extractGeminiTextFromStreamBody('data: {"candidates":[{"content":{"parts":[]}}]}\n\n')).toBe('');
-  });
-});
-
-describe('Gemini image quota handling', () => {
-  const quotaBody = JSON.stringify({
-    error: {
-      code: 429,
-      message: 'You exceeded your current quota, please check your plan and billing details.',
-      status: 'RESOURCE_EXHAUSTED',
-    },
-  });
-
-  it('treats Gemini image HTTP 429 as a quota/rate-limit error, not a parse error', () => {
-    expect(DEFAULT_GEMINI_IMAGE_MODEL).toBe('gemini-2.5-flash-image');
-    expect(isGeminiQuotaError(429, quotaBody)).toBe(true);
-    expect(isGeminiQuotaError(200, '{"candidates":[]}')).toBe(false);
-    expect(isGeminiQuotaError(404, '{"error":{"status":"NOT_FOUND"}}')).toBe(false);
-    expect(geminiImageQuotaMessage()).toMatch(/quota is used up/i);
-    expect(geminiImageQuotaMessage()).not.toMatch(/gemini-3\.6-flash/);
-  });
-
-  it('falls back to OpenAI images when IMAGE_API_KEY is present and Gemini returns 429', () => {
-    expect(
-      imageActionAfterGeminiError({
-        httpStatus: 429,
-        raw: quotaBody,
-        openaiImageKey: 'sk-test',
-      }),
-    ).toBe('openai_fallback');
-  });
-
-  it('explains quota unavailability when no OpenAI image key is configured', () => {
-    expect(
-      imageActionAfterGeminiError({
-        httpStatus: 429,
-        raw: quotaBody,
-        openaiImageKey: '',
-      }),
-    ).toBe('quota_unavailable');
-    expect(
-      errorFromAiFailure({
-        httpStatus: 502,
-        code: 'image_quota',
-        message: geminiImageQuotaMessage(),
-      }).message,
-    ).toMatch(/Gemini image quota is used up/i);
-    expect(
-      errorFromAiFailure({
-        httpStatus: 502,
-        code: 'image_quota',
-        message: geminiImageQuotaMessage(),
-      }),
-    ).not.toBeInstanceOf(AccessError);
-  });
-
-  it('does not treat a non-quota Gemini image failure as an OpenAI fallback', () => {
-    expect(
-      imageActionAfterGeminiError({
-        httpStatus: 404,
-        raw: '{"error":{"status":"NOT_FOUND","message":"model not found"}}',
-        openaiImageKey: 'sk-test',
-      }),
-    ).toBe('rethrow');
-=======
             content: {
               parts: [{ thought: true, text: 'thinking that used many tokens' }, { text: truncated }],
             },
@@ -665,6 +517,5 @@ describe('Gemini image quota handling', () => {
     expect(extractGeminiTextFromStreamBody(JSON.stringify(thoughtAndAnswer))).toBe(
       'Visible paragraph one. Visible paragraph two.',
     );
->>>>>>> 70da7110be9a1012abf055f65956d36dc83b66ee
   });
 });

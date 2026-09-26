@@ -75,7 +75,7 @@ function isGeminiModelNotFound(raw: string) {
   return /NOT_FOUND|is not found|not supported for generateContent|no longer available/i.test(raw);
 }
 
-<<<<<<< HEAD
+
 export function isGeminiQuotaError(httpStatus?: number, raw?: string) {
   if (httpStatus === 429) return true;
   return /RESOURCE_EXHAUSTED|exceeded your current quota|quota.*billing/i.test(raw ?? '');
@@ -103,8 +103,6 @@ function fallbackGeminiChatModel(currentModel: string, errorText: string) {
   return DEFAULT_GEMINI_CHAT_MODEL;
 }
 
-=======
->>>>>>> 70da7110be9a1012abf055f65956d36dc83b66ee
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
 }
@@ -112,13 +110,11 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 function geminiPartText(part: Record<string, unknown>, includeThought: boolean) {
   if (part.thought === true && !includeThought) return '';
   if (typeof part.text === 'string' && part.text) return part.text;
-<<<<<<< HEAD
+
   const executable = asRecord(part.executableCode) ?? asRecord(part.executable_code);
   if (typeof executable?.code === 'string' && executable.code) return executable.code;
   const executed = asRecord(part.codeExecutionResult) ?? asRecord(part.code_execution_result);
   if (typeof executed?.output === 'string' && executed.output) return executed.output;
-=======
->>>>>>> 70da7110be9a1012abf055f65956d36dc83b66ee
   return '';
 }
 
@@ -153,11 +149,9 @@ function collectGeminiParts(payload: Record<string, unknown>) {
   return parts;
 }
 
-<<<<<<< HEAD
+
 function extractGeminiText(data: unknown): string {
-=======
 function extractGeminiText(data: unknown, options: { includeThoughtFallback?: boolean } = {}): string {
->>>>>>> 70da7110be9a1012abf055f65956d36dc83b66ee
   const payloads = Array.isArray(data) ? data : data ? [data] : [];
   const visible: string[] = [];
   const thought: string[] = [];
@@ -178,14 +172,12 @@ function extractGeminiText(data: unknown, options: { includeThoughtFallback?: bo
       if (part.thought === true && thoughtText) thought.push(thoughtText);
     }
   }
-<<<<<<< HEAD
+
   return (visible.join('') || thought.join('\n')).trim();
-=======
   const visibleText = visible.join('');
   if (visibleText.trim()) return visibleText;
   if (options.includeThoughtFallback === false) return '';
   return thought.join('\n');
->>>>>>> 70da7110be9a1012abf055f65956d36dc83b66ee
 }
 
 function extractGeminiTextFromStreamBody(raw: string) {
@@ -199,11 +191,9 @@ function extractGeminiTextFromStreamBody(raw: string) {
       const payload = line.slice(5).trim();
       if (!payload || payload === '[DONE]') continue;
       try {
-<<<<<<< HEAD
+
         const delta = extractGeminiText(JSON.parse(payload));
-=======
         const delta = extractGeminiText(JSON.parse(payload), { includeThoughtFallback: false });
->>>>>>> 70da7110be9a1012abf055f65956d36dc83b66ee
         if (delta) chunks.push(delta);
       } catch {
         // ignore malformed stream chunks
@@ -212,11 +202,9 @@ function extractGeminiTextFromStreamBody(raw: string) {
     if (chunks.length) return chunks.join('').trim();
   }
   try {
-<<<<<<< HEAD
+
     return extractGeminiText(JSON.parse(text));
-=======
     return extractGeminiText(JSON.parse(text)).trim();
->>>>>>> 70da7110be9a1012abf055f65956d36dc83b66ee
   } catch {
     return chunks.join('').trim();
   }
@@ -347,14 +335,12 @@ export async function chatGemini(input: {
     if (input.stream) {
       return chatGemini({ ...input, model, stream: false });
     }
-<<<<<<< HEAD
+
     const fallback = fallbackGeminiChatModel(model, errText);
     if (fallback) {
       return chatGemini({ ...input, model: fallback, stream: false });
-=======
     if (isGeminiModelNotFound(errText) && model !== DEFAULT_GEMINI_CHAT_MODEL) {
       return chatGemini({ ...input, model: DEFAULT_GEMINI_CHAT_MODEL, stream: false });
->>>>>>> 70da7110be9a1012abf055f65956d36dc83b66ee
     }
     throw new ProviderError(
       formatGeminiProviderError(
@@ -376,11 +362,9 @@ export async function chatGemini(input: {
 
   if (!input.stream) {
     const data = (await response.json()) as Record<string, unknown>;
-<<<<<<< HEAD
+
     return { answer: extractGeminiText(data), chunks: collectSources(data) };
-=======
     return { answer: extractGeminiText(data).trim(), chunks: collectSources(data) };
->>>>>>> 70da7110be9a1012abf055f65956d36dc83b66ee
   }
 
   if (!response.body) {
@@ -406,11 +390,9 @@ export async function chatGemini(input: {
       if (!line) continue;
       try {
         const json = JSON.parse(line.slice(5).trim()) as Record<string, unknown>;
-<<<<<<< HEAD
+
         const delta = extractGeminiText(json);
-=======
         const delta = extractGeminiText(json, { includeThoughtFallback: false });
->>>>>>> 70da7110be9a1012abf055f65956d36dc83b66ee
         if (delta) {
           answer += delta;
           input.onDelta?.(delta);
