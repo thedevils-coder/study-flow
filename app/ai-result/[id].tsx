@@ -7,6 +7,8 @@ import { ErrorState } from '@/components/ErrorState';
 import { LoadingState } from '@/components/LoadingState';
 import { Screen } from '@/components/Screen';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { generationBelongsToUser } from '@/lib/leo-isolation';
+import { useAuth } from '@/providers/auth-provider';
 import { useStudy } from '@/providers/study-provider';
 import { useTheme } from '@/providers/theme-provider';
 import { aiService } from '@/services/ai';
@@ -14,18 +16,50 @@ import type { AiActivity } from '@/types';
 
 export default function AiResult() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { session } = useAuth();
   const { aiActivity } = useStudy();
   const { colors } = useTheme();
-  const [item, setItem] = useState<AiActivity | undefined>(aiActivity.find((entry) => entry.id === id));
+  const [item, setItem] = useState<AiActivity | undefined>();
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (item || !id) return;
+    if (!id) return;
+    if (!session?.id) {
+      setItem(undefined);
+      setError('This AI result is no longer available.');
+      return;
+    }
+
+    const cached = aiActivity.find((entry) => entry.id === id);
+    if (cached && generationBelongsToUser(cached, session.id)) {
+      setItem(cached);
+      setError(null);
+      return;
+    }
+
+    let cancelled = false;
+    setItem(undefined);
+    setError(null);
     aiService
-      .get(id)
-      .then(setItem)
-      .catch(() => setError('This AI result is no longer available.'));
-  }, [id, item]);
+      .get(id, session.id)
+      .then((next) => {
+        if (cancelled) return;
+        if (!generationBelongsToUser(next, session.id)) {
+          setItem(undefined);
+          setError('This AI result is no longer available.');
+          return;
+        }
+        setItem(next);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setItem(undefined);
+        setError('This AI result is no longer available.');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [aiActivity, id, session?.id]);
 
   if (error) {
     return (

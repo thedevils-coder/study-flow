@@ -6,7 +6,9 @@ export function errorFromAiFailure(input: { httpStatus?: number; code?: string; 
 
   if (
     input.httpStatus === 401 ||
+    input.httpStatus === 403 ||
     code === 'unauthenticated' ||
+    code === 'conversation_forbidden' ||
     input.httpStatus === 402 ||
     input.httpStatus === 429 ||
     code === 'payment_required' ||
