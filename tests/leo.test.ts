@@ -361,7 +361,7 @@ describe('Leo response length modes', () => {
     expect(classifyRequest('What is mitosis?', { preferredDetail: 'short' }).detailLevel).toBe('short');
     expect(classifyRequest('What is mitosis?', { preferredDetail: 'short' }).mode).toBe('fast_answer');
     expect(classifyRequest('What is mitosis?', { preferredDetail: 'short' }).systemDirective).toBe(instruction);
-    expect(geminiMaxOutputTokens('short')).toBe(8192);
+    expect(geminiMaxOutputTokens('short')).toBe(12288);
     expect(geminiThinkingLevel('short')).toBe('low');
   });
 
@@ -374,7 +374,7 @@ describe('Leo response length modes', () => {
     expect(classifyRequest('What is mitosis?', { preferredDetail: 'balanced' }).detailLevel).toBe('balanced');
     expect(classifyRequest('What is mitosis?', { preferredDetail: 'balanced' }).mode).toBe('fast_answer');
     expect(classifyRequest('What is mitosis?', { preferredDetail: 'balanced' }).systemDirective).toBe(instruction);
-    expect(geminiMaxOutputTokens('balanced')).toBe(16384);
+    expect(geminiMaxOutputTokens('balanced')).toBe(24576);
     expect(geminiThinkingLevel('balanced')).toBe(DEFAULT_GEMINI_THINKING_LEVEL);
     expect(geminiThinkingLevel('balanced')).toBe('medium');
   });
@@ -389,9 +389,9 @@ describe('Leo response length modes', () => {
     expect(classifyRequest('What is mitosis?', { preferredDetail: 'detailed' }).detailLevel).toBe('detailed');
     expect(classifyRequest('What is mitosis?', { preferredDetail: 'detailed' }).mode).toBe('detailed_answer');
     expect(classifyRequest('What is mitosis?', { preferredDetail: 'detailed' }).systemDirective).toBe(instruction);
-    expect(geminiMaxOutputTokens('detailed')).toBe(32768);
-    expect(geminiMaxOutputTokens('balanced', 'detailed_answer')).toBe(32768);
-    expect(geminiMaxOutputTokens('balanced', 'pdf')).toBe(32768);
+    expect(geminiMaxOutputTokens('detailed')).toBe(49152);
+    expect(geminiMaxOutputTokens('balanced', 'detailed_answer')).toBe(49152);
+    expect(geminiMaxOutputTokens('balanced', 'pdf')).toBe(49152);
     expect(geminiThinkingLevel('detailed')).toBe('medium');
   });
 
@@ -422,17 +422,17 @@ describe('Leo response length modes', () => {
   });
 
   it('leaves enough maxOutputTokens for Gemini 3.x thinking plus the visible answer', () => {
-    expect(geminiMaxOutputTokens('short')).toBeGreaterThanOrEqual(8192);
+    expect(geminiMaxOutputTokens('short')).toBeGreaterThanOrEqual(12288);
     expect(geminiMaxOutputTokens('balanced')).toBeGreaterThan(geminiMaxOutputTokens('short'));
     expect(geminiMaxOutputTokens('detailed')).toBeGreaterThan(geminiMaxOutputTokens('balanced'));
     expect(geminiMaxOutputTokens('detailed')).toBeLessThanOrEqual(65536);
     const config = geminiGenerationConfig(geminiMaxOutputTokens('detailed'), geminiThinkingLevel('detailed'));
-    expect(config.maxOutputTokens).toBe(32768);
+    expect(config.maxOutputTokens).toBe(49152);
     expect(config.thinkingConfig.thinkingLevel).toBe('medium');
     expect(config.thinkingConfig.includeThoughts).toBe(false);
     expect(config).not.toHaveProperty('temperature');
     expect(config).not.toHaveProperty('stopSequences');
-    expect(geminiGenerationConfig(8192, 'low').thinkingConfig.thinkingLevel).toBe('low');
+    expect(geminiGenerationConfig(12288, 'low').thinkingConfig.thinkingLevel).toBe('low');
   });
 });
 

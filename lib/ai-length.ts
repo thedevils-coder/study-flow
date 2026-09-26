@@ -33,15 +33,15 @@ export function lengthInstruction(detailLevel: DetailLevel) {
 }
 
 /**
- * Generous output ceiling for Gemini 3.x. Thinking tokens count against this
- * budget, so Short/Balanced must not reuse the old 500-token fast_answer cap.
+ * Expanded output ceilings for Gemini 3.x. Thinking tokens count against this
+ * budget, so Short/Balanced/Detailed have progressively larger token budgets.
  * Visible verbosity is controlled by lengthInstruction, not by a tight token cap.
  */
 export function geminiMaxOutputTokens(detailLevel: DetailLevel, mode?: AiMode) {
-  if (mode === 'pdf' || mode === 'notes') return 32768;
-  if (detailLevel === 'short') return 8192;
-  if (detailLevel === 'detailed' || mode === 'detailed_answer') return 32768;
-  return 16384;
+  if (mode === 'pdf' || mode === 'notes') return 49152;
+  if (detailLevel === 'short') return 12288;
+  if (detailLevel === 'detailed' || mode === 'detailed_answer') return 49152;
+  return 24576;
 }
 
 export function geminiThinkingLevel(detailLevel: DetailLevel): GeminiThinkingLevel {
