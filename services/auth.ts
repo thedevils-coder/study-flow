@@ -49,12 +49,12 @@ export const authService = {
     return data.session?.user ? toSession(data.session.user) : null;
   },
 
-  onAuthChange(callback: (session: UserSession | null) => void) {
+  onAuthChange(callback: (session: UserSession | null, event?: string) => void) {
     if (!isSupabaseConfigured) {
       return { data: { subscription: { unsubscribe() {} } } };
     }
-    return getSupabase().auth.onAuthStateChange((_event, next) => {
-      callback(next?.user ? toSession(next.user) : null);
+    return getSupabase().auth.onAuthStateChange((event, next) => {
+      callback(next?.user ? toSession(next.user) : null, event);
     });
   },
 

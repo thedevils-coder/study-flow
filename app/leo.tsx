@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as DocumentPicker from 'expo-document-picker';
 import { File } from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
@@ -28,14 +27,15 @@ import { conversationForRetry, newMessageId } from '@/lib/ai-retry';
 import type { AiAttachment, ChatMessage, DetailLevel } from '@/lib/ai-types';
 import { AccessError, ConfigurationError } from '@/lib/errors';
 import { userLeoError } from '@/lib/ai-errors';
+import { shouldApplyLeoResult } from '@/lib/leo-isolation';
 import { canUseKind } from '@/lib/entitlements';
 import { TESTER_COPY, isTesterBuildEnabled, isTesterSession } from '@/lib/tester';
 import { useAuth } from '@/providers/auth-provider';
 import { useStudy } from '@/providers/study-provider';
 import { useTheme } from '@/providers/theme-provider';
 import { aiService } from '@/services/ai';
+import { leoSessionStore } from '@/services/leo-session';
 
-const STORAGE_KEY = 'studyflow.leo.conversation.v1';
 const DETAILS: { id: DetailLevel; label: string }[] = [
   { id: 'short', label: 'Short' },
   { id: 'balanced', label: 'Balanced' },
@@ -65,7 +65,8 @@ export default function Leo() {
   const [conversationId, setConversationId] = useState(newMessageId());
   const [busy, setBusy] = useState(false);
   const [statusLabel, setStatusLabel] = useState('');
-  const restored = useRef(false);
+  const ownerRef = useRef<string | null>(session?.id ?? null);
+  const saveReady = useRef(false);
 
   const studyContext = useMemo(
     () => ({
@@ -76,26 +77,57 @@ export default function Leo() {
     [tasks, goals, progress.weekSeconds],
   );
 
-  useEffect(() => {
-    if (restored.current) return;
-    restored.current = true;
-    void AsyncStorage.getItem(STORAGE_KEY).then((raw) => {
-      if (!raw) return;
-      try {
-        const parsed = JSON.parse(raw) as { conversationId?: string; messages?: ChatMessage[] };
-        if (parsed.conversationId) setConversationId(parsed.conversationId);
-        if (Array.isArray(parsed.messages)) {
-          setMessages(parsed.messages.filter((item) => item.status !== 'streaming' && item.status !== 'sending'));
-        }
-      } catch {
-        // Ignore a corrupt local conversation cache.
-      }
-    });
+  const clearLeoUi = useCallback(() => {
+    setMessages([]);
+    setAttachments([]);
+    lastAttachments.current = [];
+    setConversationId(newMessageId());
+    setPrompt('');
+    setStatusLabel('');
+    setBusy(false);
   }, []);
 
   useEffect(() => {
-    void AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ conversationId, messages }));
-  }, [conversationId, messages]);
+    const userId = session?.id ?? null;
+    ownerRef.current = userId;
+    saveReady.current = false;
+
+    if (!userId) {
+      clearLeoUi();
+      void leoSessionStore.clearShared();
+      return;
+    }
+
+    let cancelled = false;
+    void leoSessionStore.load(userId).then((cached) => {
+      if (cancelled || ownerRef.current !== userId) return;
+      if (cached) {
+        setConversationId(cached.conversationId);
+        setMessages(cached.messages);
+        setAttachments([]);
+        lastAttachments.current = [];
+        setPrompt('');
+        setStatusLabel('');
+        setBusy(false);
+      } else {
+        clearLeoUi();
+      }
+      saveReady.current = true;
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [clearLeoUi, session?.id]);
+
+  useEffect(() => {
+    const userId = session?.id;
+    if (!userId || !saveReady.current || ownerRef.current !== userId) return;
+    void leoSessionStore.save(userId, {
+      conversationId,
+      messages: messages.filter((item) => item.status !== 'streaming' && item.status !== 'sending'),
+    });
+  }, [conversationId, messages, session?.id]);
 
   const scrollToEnd = () => {
     requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
@@ -157,6 +189,7 @@ export default function Leo() {
         return;
       }
 
+      const requestUserId = session.id;
       const history = historyOverride ?? messages;
       const route = classifyRequest(trimmed, {
         preferredDetail: detailLevel,
@@ -202,8 +235,12 @@ export default function Leo() {
           detailLevel,
           conversationId,
           context: studyContext,
-          onStatus: setStatusLabel,
+          onStatus: (label) => {
+            if (!shouldApplyLeoResult(requestUserId, ownerRef.current)) return;
+            setStatusLabel(label);
+          },
           onDelta: (chunk) => {
+            if (!shouldApplyLeoResult(requestUserId, ownerRef.current)) return;
             setMessages((current) =>
               current.map((item) =>
                 item.id === pendingId ? { ...item, content: `${item.content}${chunk}`, status: 'streaming', error: undefined } : item,
@@ -212,6 +249,7 @@ export default function Leo() {
             scrollToEnd();
           },
         });
+        if (!shouldApplyLeoResult(requestUserId, ownerRef.current)) return;
         setMessages((current) =>
           current.map((item) =>
             item.id === pendingId
@@ -232,6 +270,7 @@ export default function Leo() {
         );
         await reloadAi();
       } catch (error) {
+        if (!shouldApplyLeoResult(requestUserId, ownerRef.current)) return;
         const message = userLeoError(error);
         if (error instanceof AccessError) {
           Alert.alert('Leo', message, [
@@ -249,6 +288,7 @@ export default function Leo() {
           ),
         );
       } finally {
+        if (!shouldApplyLeoResult(requestUserId, ownerRef.current)) return;
         setBusy(false);
         setStatusLabel('');
       }

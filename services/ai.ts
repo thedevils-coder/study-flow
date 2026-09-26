@@ -1,4 +1,5 @@
 import { AccessError, ConfigurationError, isMissingRelationError } from '@/lib/errors';
+import { generationBelongsToUser } from '@/lib/leo-isolation';
 import { sanitizeArtifacts } from '@/lib/ai-artifacts';
 import { packConversation } from '@/lib/ai-context';
 import { errorFromAiFailure } from '@/lib/ai-errors';
@@ -218,14 +219,19 @@ export const aiService = {
     return { used, limit: tierLimit, remaining: Math.max(0, tierLimit - used) };
   },
 
-  async get(id: string) {
+  async get(id: string, userId: string) {
     if (!isSupabaseConfigured) throw new Error('Supabase is not configured.');
+    if (!userId) throw new AccessError('This AI result is no longer available.');
     const { data, error } = await getSupabase()
       .from('ai_generations')
       .select('id,user_id,kind,prompt,result_text,result_meta,created_at')
       .eq('id', id)
-      .single();
+      .eq('user_id', userId)
+      .maybeSingle();
     if (error) throw error;
+    if (!data || !generationBelongsToUser(data as GenerationRow, userId)) {
+      throw new AccessError('This AI result is no longer available.');
+    }
     return mapActivity(data as GenerationRow);
   },
 

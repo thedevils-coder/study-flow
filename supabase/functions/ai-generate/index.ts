@@ -240,6 +240,31 @@ Deno.serve(async (request) => {
     return fail(400, 'Invalid request.', 'invalid_request');
   }
 
+  const requestedConversationId = typeof payload.conversationId === 'string' ? payload.conversationId.trim() : '';
+  let conversationId: string | null = requestedConversationId || null;
+  if (requestedConversationId) {
+    const existing = await admin
+      .from('ai_generations')
+      .select('user_id')
+      .contains('result_meta', { conversationId: requestedConversationId })
+      .limit(50);
+    if (existing.error) {
+      conversationId = null;
+    } else {
+      const existingOwners = [
+        ...new Set(
+          (existing.data ?? [])
+            .map((row: { user_id?: string | null }) => String(row.user_id || ''))
+            .filter(Boolean),
+        ),
+      ];
+      const foreign = existingOwners.filter((owner) => owner !== userId);
+      if (foreign.length) {
+        return fail(403, 'That conversation belongs to another account.', 'conversation_forbidden');
+      }
+    }
+  }
+
   const { data: subscription, error: subscriptionError } = await admin
     .from('subscriptions')
     .select('state, entitlement_id, entitlement_ids, product_id, expires_at')
@@ -571,7 +596,7 @@ Deno.serve(async (request) => {
         provider,
         model,
         latency: Date.now() - started,
-        conversationId: payload.conversationId ?? null,
+        conversationId,
       });
 
       return {
