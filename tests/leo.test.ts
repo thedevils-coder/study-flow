@@ -356,7 +356,7 @@ describe('Leo response length modes', () => {
   it('instructs Short mode to stay concise without a hard word count', () => {
     const instruction = lengthInstruction('short');
     expect(instruction).toMatch(/SHORT/);
-    expect(instruction).toMatch(/1-3 short paragraphs/);
+    expect(instruction).toMatch(/answer the question completely/);
     expect(instruction).not.toMatch(/\b\d+\s+words?\b/i);
     expect(classifyRequest('What is mitosis?', { preferredDetail: 'short' }).detailLevel).toBe('short');
     expect(classifyRequest('What is mitosis?', { preferredDetail: 'short' }).mode).toBe('fast_answer');
@@ -368,8 +368,8 @@ describe('Leo response length modes', () => {
   it('instructs Balanced mode to give a normal study-assistant answer', () => {
     const instruction = lengthInstruction('balanced');
     expect(instruction).toMatch(/BALANCED/);
-    expect(instruction).toMatch(/4-8 paragraphs/);
-    expect(instruction).toMatch(/Do not shrink this into a short summary/);
+    expect(instruction).toMatch(/substantial, complete study-assistant answer/);
+    expect(instruction).toMatch(/Do not artificially shorten the answer/);
     expect(instruction).not.toMatch(/\b\d+\s+words?\b/i);
     expect(classifyRequest('What is mitosis?', { preferredDetail: 'balanced' }).detailLevel).toBe('balanced');
     expect(classifyRequest('What is mitosis?', { preferredDetail: 'balanced' }).mode).toBe('fast_answer');
@@ -383,8 +383,8 @@ describe('Leo response length modes', () => {
     const instruction = lengthInstruction('detailed');
     expect(instruction).toMatch(/DETAILED/);
     expect(instruction).toMatch(/genuinely thorough/);
-    expect(instruction).toMatch(/Do not intentionally keep the answer short/);
-    expect(instruction).toMatch(/substantial answer rather than a summary/);
+    expect(instruction).toMatch(/Do not artificially shorten the answer/);
+    expect(instruction).toMatch(/Do not artificially shorten the answer when additional useful explanation is warranted/);
     expect(instruction).not.toMatch(/\b\d+\s+words?\b/i);
     expect(classifyRequest('What is mitosis?', { preferredDetail: 'detailed' }).detailLevel).toBe('detailed');
     expect(classifyRequest('What is mitosis?', { preferredDetail: 'detailed' }).mode).toBe('detailed_answer');
