@@ -31,19 +31,18 @@ export function DateTimeField({
   const inputRef = useRef<HtmlPickerInput | null>(null);
   const inputValue = value ? (mode === 'date' ? toHtmlDateValue(value) : toHtmlTimeValue(value)) : '';
 
-  const openPicker = useCallback(() => {
-    const input = inputRef.current;
-    if (!input) return;
+  const openPicker = useCallback((input?: HtmlPickerInput | null) => {
+    const target = input ?? inputRef.current;
+    if (!target) return;
     try {
-      if (typeof input.showPicker === 'function') {
-        input.showPicker();
+      if (typeof target.showPicker === 'function') {
+        target.showPicker();
         return;
       }
     } catch {
-      // Some browsers throw if showPicker is blocked; fall through to a click.
+      // Some browsers throw if showPicker is blocked; keep the input focused.
     }
-    input.focus();
-    input.click();
+    target.focus();
   }, []);
 
   const handleChange = useCallback(
@@ -57,7 +56,13 @@ export function DateTimeField({
 
   return (
     <View style={[styles.field, { borderColor: colors.inputBorder, backgroundColor: colors.input }]}>
-      <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={openPicker} style={styles.row}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        onPress={() => openPicker()}
+        pointerEvents="none"
+        style={styles.row}
+      >
         <Text style={{ color: colors.mutedText, fontWeight: '700' }}>{label}</Text>
         <Text style={{ color: colors.text, fontWeight: '700' }}>{value ? displayText : placeholder}</Text>
       </Pressable>
@@ -69,6 +74,7 @@ export function DateTimeField({
         value: inputValue,
         onChange: handleChange,
         onInput: handleChange,
+        onPointerDown: (event: { currentTarget: HtmlPickerInput }) => openPicker(event.currentTarget),
         'aria-label': label,
         style: webInputStyle,
       })}
