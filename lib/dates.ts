@@ -55,6 +55,9 @@ export const toHtmlDateValue = (date: Date) => dayKey(date);
 export const toHtmlTimeValue = (date: Date) =>
   `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 
+export const toHtmlDateTimeLocalValue = (date: Date) =>
+  `${toHtmlDateValue(date)}T${toHtmlTimeValue(date)}`;
+
 export function applyHtmlDateValue(current: Date | null | undefined, value: string) {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
   if (!match) return current ? new Date(current) : new Date();
@@ -69,6 +72,48 @@ export function applyHtmlTimeValue(current: Date | null | undefined, value: stri
   const next = current ? new Date(current) : new Date();
   next.setHours(Number(match[1]), Number(match[2]), 0, 0);
   return next;
+}
+
+export function applyHtmlDateTimeLocalValue(current: Date | null | undefined, value: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{1,2}):(\d{2})/.exec(value);
+  if (!match) return current ? new Date(current) : new Date();
+  const next = current ? new Date(current) : new Date();
+  next.setFullYear(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  next.setHours(Number(match[4]), Number(match[5]), 0, 0);
+  return next;
+}
+
+function isPlausibleDateParts(year: number, month: number, day: number) {
+  if (month < 1 || month > 12 || day < 1 || day > 31) return false;
+  const probe = new Date(year, month - 1, day);
+  return probe.getFullYear() === year && probe.getMonth() === month - 1 && probe.getDate() === day;
+}
+
+export function parseHtmlDateTimeValue(value: string, current: Date | null | undefined, mode: 'date' | 'time' | 'datetime') {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (mode === 'date') {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed);
+    if (!match) return null;
+    if (!isPlausibleDateParts(Number(match[1]), Number(match[2]), Number(match[3]))) return null;
+    return applyHtmlDateValue(current, trimmed);
+  }
+  if (mode === 'time') {
+    const match = /^(\d{1,2}):(\d{2})/.exec(trimmed);
+    if (!match) return null;
+    const hour = Number(match[1]);
+    const minute = Number(match[2]);
+    if (hour > 23 || minute > 59) return null;
+    return applyHtmlTimeValue(current, trimmed);
+  }
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{1,2}):(\d{2})/.exec(trimmed);
+  if (!match) return null;
+  const hour = Number(match[4]);
+  const minute = Number(match[5]);
+  if (!isPlausibleDateParts(Number(match[1]), Number(match[2]), Number(match[3])) || hour > 23 || minute > 59) {
+    return null;
+  }
+  return applyHtmlDateTimeLocalValue(current, trimmed);
 }
 
 export function htmlValueFromChangeEvent(event: unknown): string {

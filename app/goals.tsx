@@ -3,10 +3,10 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
-import { DateTimeField } from '@/components/DateTimeField';
 import { EmptyState } from '@/components/EmptyState';
 import { GoalCard } from '@/components/GoalCard';
 import { Input } from '@/components/Input';
+import { PlatformDateTimePicker } from '@/components/PlatformDateTimePicker';
 import { Screen } from '@/components/Screen';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { formatShortDate } from '@/lib/dates';
@@ -48,7 +48,7 @@ export default function Goals() {
         <Input label="Title" value={title} onChangeText={setTitle} placeholder="Study 20 hours this month" />
         <Input label="Target" value={target} onChangeText={setTarget} keyboardType="number-pad" placeholder="20" />
         <Input label="Unit" value={unit} onChangeText={setUnit} placeholder="hours" />
-        <DateTimeField
+        <PlatformDateTimePicker
           label="Due date"
           mode="date"
           value={due}
