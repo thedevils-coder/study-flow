@@ -50,6 +50,27 @@ export const combineDateAndTime = (date: Date, time: Date) => {
   return result;
 };
 
+export const toHtmlDateValue = (date: Date) => dayKey(date);
+
+export const toHtmlTimeValue = (date: Date) =>
+  `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+
+export function applyHtmlDateValue(current: Date | null | undefined, value: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return current ? new Date(current) : new Date();
+  const next = current ? new Date(current) : new Date();
+  next.setFullYear(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  return next;
+}
+
+export function applyHtmlTimeValue(current: Date | null | undefined, value: string) {
+  const match = /^(\d{1,2}):(\d{2})/.exec(value);
+  if (!match) return current ? new Date(current) : new Date();
+  const next = current ? new Date(current) : new Date();
+  next.setHours(Number(match[1]), Number(match[2]), 0, 0);
+  return next;
+}
+
 export const isSameDay = (left: Date, right: Date) => dayKey(left) === dayKey(right);
 
 export const formatDuration = (seconds: number) => {
