@@ -153,9 +153,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       },
 
       async signOut() {
-        await authService.signOut();
-        await leoSessionStore.clearShared();
-        setSession(null);
+        try {
+          await authService.signOut();
+        } finally {
+          await leoSessionStore.clearShared();
+          setSession(null);
+        }
       },
 
       async deleteAccount() {

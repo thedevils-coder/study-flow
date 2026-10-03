@@ -1,10 +1,11 @@
 import { router } from 'expo-router';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { Card } from '@/components/Card';
 import { ListRow } from '@/components/ListRow';
 import { Screen } from '@/components/Screen';
 import { TestStateNotice } from '@/components/TestStateNotice';
+import { confirmDialog } from '@/lib/dialog';
 import { displayPlanLabel } from '@/lib/entitlements';
 import { TESTER_COPY, isTesterBuildEnabled, isTesterSession } from '@/lib/tester';
 import { useAuth } from '@/providers/auth-provider';
@@ -62,17 +63,17 @@ export default function Profile() {
             label="Sign out"
             danger
             onPress={() => {
-              Alert.alert('Sign out', 'Sign out of Study Flow?', [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                  text: 'Sign out',
-                  style: 'destructive',
-                  onPress: async () => {
-                    await signOut();
-                    router.replace('/');
-                  },
-                },
-              ]);
+              void (async () => {
+                const confirmed = await confirmDialog({
+                  title: 'Sign out',
+                  message: 'Sign out of Study Flow?',
+                  confirmLabel: 'Sign out',
+                  destructive: true,
+                });
+                if (!confirmed) return;
+                await signOut();
+                router.replace('/');
+              })();
             }}
           />
         </View>

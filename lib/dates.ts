@@ -71,6 +71,18 @@ export function applyHtmlTimeValue(current: Date | null | undefined, value: stri
   return next;
 }
 
+export function htmlValueFromChangeEvent(event: unknown): string {
+  if (typeof event === 'string') return event;
+  if (!event || typeof event !== 'object') return '';
+  const record = event as { target?: { value?: unknown }; nativeEvent?: { text?: unknown; target?: { value?: unknown } } };
+  const fromTarget = record.target?.value;
+  if (typeof fromTarget === 'string') return fromTarget;
+  const fromNative = record.nativeEvent?.text ?? record.nativeEvent?.target?.value;
+  return typeof fromNative === 'string' ? fromNative : '';
+}
+
+export const usesHtmlDateTimePicker = (os: string) => os === 'web';
+
 export const isSameDay = (left: Date, right: Date) => dayKey(left) === dayKey(right);
 
 export const formatDuration = (seconds: number) => {

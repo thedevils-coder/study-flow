@@ -3,9 +3,10 @@ import { describe, expect, it } from 'vitest';
 import {
   applyHtmlDateValue,
   applyHtmlTimeValue,
-  combineDateAndTime,
+  htmlValueFromChangeEvent,
   toHtmlDateValue,
   toHtmlTimeValue,
+  usesHtmlDateTimePicker,
 } from '@/lib/dates';
 
 describe('HTML date/time field values', () => {
@@ -34,12 +35,16 @@ describe('HTML date/time field values', () => {
     expect(next.getSeconds()).toBe(0);
   });
 
-  it('builds a complete datetime from separate date and time picks', () => {
-    const current = new Date(2026, 0, 1, 8, 0, 0);
-    const dated = applyHtmlDateValue(current, '2026-11-12');
-    const timed = applyHtmlTimeValue(dated, '07:15');
-    expect(combineDateAndTime(dated, timed).toISOString()).toBe(timed.toISOString());
-    expect(toHtmlDateValue(timed)).toBe('2026-11-12');
-    expect(toHtmlTimeValue(timed)).toBe('07:15');
+  it('reads values from DOM onChange, onChangeText strings, and nativeEvent text', () => {
+    expect(htmlValueFromChangeEvent({ target: { value: '2026-10-15' } })).toBe('2026-10-15');
+    expect(htmlValueFromChangeEvent('19:15')).toBe('19:15');
+    expect(htmlValueFromChangeEvent({ nativeEvent: { text: '07:15' } })).toBe('07:15');
+    expect(htmlValueFromChangeEvent({ target: {} })).toBe('');
+  });
+
+  it('uses the HTML picker only on web', () => {
+    expect(usesHtmlDateTimePicker('web')).toBe(true);
+    expect(usesHtmlDateTimePicker('android')).toBe(false);
+    expect(usesHtmlDateTimePicker('ios')).toBe(false);
   });
 });

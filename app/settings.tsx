@@ -6,6 +6,7 @@ import { ListRow } from '@/components/ListRow';
 import { Screen } from '@/components/Screen';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { BRAND } from '@/constants/brand';
+import { alertDialog, confirmDialog } from '@/lib/dialog';
 import { userFacingError } from '@/lib/errors';
 import { isTesterBuildEnabled, isTesterSession } from '@/lib/tester';
 import { useAuth } from '@/providers/auth-provider';
@@ -118,38 +119,41 @@ export default function Settings() {
           <ListRow
             icon="log-out-outline"
             label="Sign out"
-            onPress={() =>
-              Alert.alert('Sign out', 'Sign out of Study Flow?', [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Sign out', style: 'destructive', onPress: async () => { await signOut(); router.replace('/'); } },
-              ])
-            }
+            onPress={() => {
+              void (async () => {
+                const confirmed = await confirmDialog({
+                  title: 'Sign out',
+                  message: 'Sign out of Study Flow?',
+                  confirmLabel: 'Sign out',
+                  destructive: true,
+                });
+                if (!confirmed) return;
+                await signOut();
+                router.replace('/');
+              })();
+            }}
           />
           <ListRow
             icon="trash-outline"
             label="Delete account"
             danger
-            onPress={() =>
-              Alert.alert(
-                'Delete account',
-                'This permanently deletes your Study Flow data and sign-in. This cannot be undone.',
-                [
-                  { text: 'Cancel', style: 'cancel' },
-                  {
-                    text: 'Delete my account',
-                    style: 'destructive',
-                    onPress: async () => {
-                      try {
-                        await deleteAccount();
-                        router.replace('/');
-                      } catch (error) {
-                        Alert.alert('Delete account', userFacingError(error, 'Unable to delete the account right now.'));
-                      }
-                    },
-                  },
-                ],
-              )
-            }
+            onPress={() => {
+              void (async () => {
+                const confirmed = await confirmDialog({
+                  title: 'Delete account',
+                  message: 'This permanently deletes your Study Flow data and sign-in. This cannot be undone.',
+                  confirmLabel: 'Delete my account',
+                  destructive: true,
+                });
+                if (!confirmed) return;
+                try {
+                  await deleteAccount();
+                  router.replace('/');
+                } catch (error) {
+                  alertDialog('Delete account', userFacingError(error, 'Unable to delete the account right now.'));
+                }
+              })();
+            }}
           />
         </View>
       </Card>
