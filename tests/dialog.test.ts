@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Alert, Platform } from 'react-native';
 
-import { alertDialog, confirmDialog } from '@/lib/dialog';
+import { alertDialog, confirmDialog, registerWebDialogPresenter } from '@/lib/dialog';
 
 vi.mock('react-native', () => ({
   Platform: { OS: 'web' },
@@ -11,6 +11,7 @@ vi.mock('react-native', () => ({
 describe('web and native dialogs', () => {
   afterEach(() => {
     Platform.OS = 'web';
+    registerWebDialogPresenter(null);
     vi.unstubAllGlobals();
     vi.clearAllMocks();
   });
@@ -28,6 +29,23 @@ describe('web and native dialogs', () => {
     ).resolves.toBe(true);
     expect(confirm).toHaveBeenCalledWith('Sign out\n\nSign out of Study Flow?');
     expect(Alert.alert).not.toHaveBeenCalled();
+  });
+
+  it('uses the in-app web dialog host instead of window.confirm when registered', async () => {
+    const confirm = vi.fn(() => false);
+    vi.stubGlobal('confirm', confirm);
+    registerWebDialogPresenter((request) => {
+      if (request?.type === 'confirm') request.resolve(true);
+    });
+    await expect(
+      confirmDialog({
+        title: 'Sign out',
+        message: 'Sign out of Study Flow?',
+        confirmLabel: 'Sign out',
+        destructive: true,
+      }),
+    ).resolves.toBe(true);
+    expect(confirm).not.toHaveBeenCalled();
   });
 
   it('returns false when the web confirm is cancelled', async () => {
@@ -56,11 +74,21 @@ describe('web and native dialogs', () => {
     ]);
   });
 
-  it('shows window.alert on web instead of the no-op Alert.alert', () => {
+  it('shows window.alert on web instead of the no-op Alert.alert', async () => {
     const alert = vi.fn();
     vi.stubGlobal('alert', alert);
-    alertDialog('Delete account', 'Unable to delete the account right now.');
+    await alertDialog('Delete account', 'Unable to delete the account right now.');
     expect(alert).toHaveBeenCalledWith('Delete account\n\nUnable to delete the account right now.');
     expect(Alert.alert).not.toHaveBeenCalled();
+  });
+
+  it('uses the in-app web dialog host instead of window.alert when registered', async () => {
+    const alert = vi.fn();
+    vi.stubGlobal('alert', alert);
+    registerWebDialogPresenter((request) => {
+      if (request?.type === 'alert') request.resolve();
+    });
+    await alertDialog('Task', 'Enter a task title.');
+    expect(alert).not.toHaveBeenCalled();
   });
 });

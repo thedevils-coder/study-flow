@@ -9,6 +9,7 @@ import { BRAND } from '@/constants/brand';
 import { alertDialog, confirmDialog } from '@/lib/dialog';
 import { userFacingError } from '@/lib/errors';
 import { isTesterBuildEnabled, isTesterSession } from '@/lib/tester';
+import { webDebug } from '@/lib/web-debug';
 import { useAuth } from '@/providers/auth-provider';
 import { useStudy } from '@/providers/study-provider';
 import { useTheme } from '@/providers/theme-provider';
@@ -120,6 +121,7 @@ export default function Settings() {
             icon="log-out-outline"
             label="Sign out"
             onPress={() => {
+              webDebug('Sign Out pressed');
               void (async () => {
                 const confirmed = await confirmDialog({
                   title: 'Sign out',
@@ -138,6 +140,7 @@ export default function Settings() {
             label="Delete account"
             danger
             onPress={() => {
+              webDebug('Delete Account pressed');
               void (async () => {
                 const confirmed = await confirmDialog({
                   title: 'Delete account',
@@ -150,7 +153,7 @@ export default function Settings() {
                   await deleteAccount();
                   router.replace('/');
                 } catch (error) {
-                  alertDialog('Delete account', userFacingError(error, 'Unable to delete the account right now.'));
+                  await alertDialog('Delete account', userFacingError(error, 'Unable to delete the account right now.'));
                 }
               })();
             }}

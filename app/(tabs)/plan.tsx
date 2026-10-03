@@ -18,6 +18,7 @@ import {
   startOfMonth,
   startOfWeek,
 } from '@/lib/dates';
+import { webDebug } from '@/lib/web-debug';
 import { useStudy } from '@/providers/study-provider';
 import { useTheme } from '@/providers/theme-provider';
 import type { Task } from '@/types';
@@ -123,7 +124,10 @@ export default function Plan() {
           title="No tasks scheduled"
           message="Add a task with a date and time to see it in this view."
           actionLabel="Add task"
-          onAction={() => router.push('/task/new')}
+          onAction={() => {
+            webDebug('Add Task pressed');
+            router.push('/task/new');
+          }}
         />
       ) : (
         <Card padded={false}>
@@ -141,7 +145,13 @@ export default function Plan() {
         </Card>
       )}
 
-      <Button label="Add task" onPress={() => router.push('/task/new')} />
+      <Button
+        label="Add task"
+        onPress={() => {
+          webDebug('Add Task pressed');
+          router.push('/task/new');
+        }}
+      />
     </Screen>
   );
 }

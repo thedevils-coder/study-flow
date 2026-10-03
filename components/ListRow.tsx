@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
+import { TapTarget } from '@/components/TapTarget';
 import { useTheme } from '@/providers/theme-provider';
 
 export function ListRow({
@@ -19,7 +20,9 @@ export function ListRow({
 }) {
   const { colors } = useTheme();
   return (
-    <Pressable
+    <TapTarget
+      accessibilityRole="button"
+      accessibilityLabel={label}
       onPress={onPress}
       disabled={!onPress}
       style={[styles.row, { borderBottomColor: colors.divider }]}
@@ -30,7 +33,7 @@ export function ListRow({
       <Text style={[styles.label, { color: danger ? colors.danger : colors.text }]}>{label}</Text>
       {value ? <Text style={[styles.value, { color: colors.mutedText }]}>{value}</Text> : null}
       {onPress ? <Ionicons name="chevron-forward" size={16} color={colors.mutedText} /> : null}
-    </Pressable>
+    </TapTarget>
   );
 }
 

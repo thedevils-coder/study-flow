@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
@@ -10,7 +10,9 @@ import { Input } from '@/components/Input';
 import { Screen } from '@/components/Screen';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { formatShortDate } from '@/lib/dates';
+import { alertDialog, confirmDialog } from '@/lib/dialog';
 import { userFacingError } from '@/lib/errors';
+import { webDebug } from '@/lib/web-debug';
 import { useStudy } from '@/providers/study-provider';
 import { useTheme } from '@/providers/theme-provider';
 
@@ -24,6 +26,7 @@ export default function Goals() {
   const [saving, setSaving] = useState(false);
 
   const save = async () => {
+    webDebug('Add Goal pressed');
     setSaving(true);
     try {
       await createGoal(title, target, unit, due);
@@ -31,7 +34,7 @@ export default function Goals() {
       setTarget('');
       setDue(null);
     } catch (error) {
-      Alert.alert('Goal', userFacingError(error, 'Unable to save the goal.'));
+      await alertDialog('Goal', userFacingError(error, 'Unable to save the goal.'));
     } finally {
       setSaving(false);
     }
@@ -73,10 +76,15 @@ export default function Goals() {
                 label="Delete"
                 variant="danger"
                 onPress={() =>
-                  Alert.alert('Delete goal', `Delete “${goal.title}”?`, [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: 'Delete', style: 'destructive', onPress: () => void deleteGoal(goal.id) },
-                  ])
+                  void (async () => {
+                    const confirmed = await confirmDialog({
+                      title: 'Delete goal',
+                      message: `Delete “${goal.title}”?`,
+                      confirmLabel: 'Delete',
+                      destructive: true,
+                    });
+                    if (confirmed) await deleteGoal(goal.id);
+                  })()
                 }
               />
             </View>

@@ -8,6 +8,7 @@ import { TestStateNotice } from '@/components/TestStateNotice';
 import { confirmDialog } from '@/lib/dialog';
 import { displayPlanLabel } from '@/lib/entitlements';
 import { TESTER_COPY, isTesterBuildEnabled, isTesterSession } from '@/lib/tester';
+import { webDebug } from '@/lib/web-debug';
 import { useAuth } from '@/providers/auth-provider';
 import { useStudy } from '@/providers/study-provider';
 import { useTheme } from '@/providers/theme-provider';
@@ -63,6 +64,7 @@ export default function Profile() {
             label="Sign out"
             danger
             onPress={() => {
+              webDebug('Sign Out pressed');
               void (async () => {
                 const confirmed = await confirmDialog({
                   title: 'Sign out',
