@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text } from 'react-native';
+import { Pressable, StyleSheet, Text } from 'react-native';
 import { router } from 'expo-router';
 
 import { Button } from '@/components/Button';
 import { Input } from '@/components/Input';
 import { Screen } from '@/components/Screen';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { alertDialog } from '@/lib/dialog';
 import { userFacingError } from '@/lib/errors';
 import { useAuth } from '@/providers/auth-provider';
 import { useTheme } from '@/providers/theme-provider';
@@ -20,20 +21,20 @@ export default function SignUp() {
 
   const submit = async () => {
     if (!email.trim() || password.length < 8) {
-      Alert.alert('Create account', 'Use a valid email and a password of at least 8 characters.');
+      await alertDialog('Create account', 'Use a valid email and a password of at least 8 characters.');
       return;
     }
     setLoading(true);
     try {
       const result = await signUp(email, password, name || 'Student');
       if (result.needsVerification) {
-        Alert.alert('Check your email', 'Confirm your email to finish creating your account, then sign in.');
+        await alertDialog('Check your email', 'Confirm your email to finish creating your account, then sign in.');
         router.replace('/(auth)/sign-in');
         return;
       }
       router.replace('/');
     } catch (error) {
-      Alert.alert('Create account', userFacingError(error, 'Unable to create your account.'));
+      await alertDialog('Create account', userFacingError(error, 'Unable to create your account.'));
     } finally {
       setLoading(false);
     }
@@ -68,7 +69,7 @@ export default function SignUp() {
             const result = await signInWithGoogle();
             if (!result.cancelled) router.replace('/');
           } catch (error) {
-            Alert.alert('Google sign-in', userFacingError(error, 'Google sign-in is not available yet.'));
+            await alertDialog('Google sign-in', userFacingError(error, 'Google sign-in is not available yet.'));
           } finally {
             setLoading(false);
           }

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 
 import { Button } from '@/components/Button';
@@ -7,6 +7,7 @@ import { Input } from '@/components/Input';
 import { Screen } from '@/components/Screen';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { TesterAccountButton } from '@/components/TesterAccountButton';
+import { alertDialog } from '@/lib/dialog';
 import { userFacingError } from '@/lib/errors';
 import { isTesterBuildEnabled } from '@/lib/tester';
 import { useAuth } from '@/providers/auth-provider';
@@ -21,7 +22,7 @@ export default function SignIn() {
 
   const submit = async () => {
     if (!email.trim() || !password) {
-      Alert.alert('Sign in', 'Enter your email and password.');
+      await alertDialog('Sign in', 'Enter your email and password.');
       return;
     }
     setLoading(true);
@@ -29,7 +30,7 @@ export default function SignIn() {
       await signIn(email, password);
       router.replace('/');
     } catch (error) {
-      Alert.alert('Sign in', userFacingError(error, 'Unable to sign in.'));
+      await alertDialog('Sign in', userFacingError(error, 'Unable to sign in.'));
     } finally {
       setLoading(false);
     }
@@ -41,7 +42,7 @@ export default function SignIn() {
       const result = await signInWithGoogle();
       if (!result.cancelled) router.replace('/');
     } catch (error) {
-      Alert.alert('Google sign-in', userFacingError(error, 'Google sign-in is not available yet.'));
+      await alertDialog('Google sign-in', userFacingError(error, 'Google sign-in is not available yet.'));
     } finally {
       setLoading(false);
     }

@@ -4,7 +4,7 @@ These are account actions, not application-code gaps.
 
 | Item | Where to set it | Notes |
 | --- | --- | --- |
-| Supabase URL + publishable key | EAS secrets / local `.env` | Public client values only. URL is the project origin (`https://<ref>.supabase.co`), not `/rest/v1/`. |
+| Supabase URL + publishable key | Local `.env.local` or `.env`; production web export reads the same files at build time; EAS env vars for cloud native builds | Public client values only (`EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`). URL is the project origin (`https://<ref>.supabase.co`), not `/rest/v1/`. Never put `SUPABASE_SERVICE_ROLE_KEY` in these files or the app. |
 | Google OAuth | Supabase Auth + Google Cloud | Callback is the Supabase URL; app scheme is `studyflow://` |
 | AI_API_KEY | Supabase Edge Function secrets | Optional. OpenAI-compatible chat when set. If absent, Leo uses `GEMINI_API_KEY` for normal/fast/detailed chat, notes, quizzes, and PDF content. Never `EXPO_PUBLIC_` |
 | AI_API_URL | Edge Function secret (optional) | Defaults to `https://api.openai.com/v1/chat/completions` |

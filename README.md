@@ -15,6 +15,20 @@ npm install
 npx expo start
 ```
 
+Web (local, loads `.env.local` or `.env`):
+
+```bash
+npx expo start --web
+```
+
+Production web build (inlines `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` from `.env.local` / `.env` / `.env.production` / the export-time environment):
+
+```bash
+npm run web:export
+```
+
+The static files are written to `dist/`. Serve them with any static host, or `npx expo serve dist`.
+
 Primary Android build:
 
 ```bash

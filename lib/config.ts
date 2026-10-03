@@ -25,9 +25,15 @@ const extraString = (key: string) => {
 
 const testerAccountEnabled = extraFlag(extra.testerAccountEnabled);
 
+// Static `process.env.EXPO_PUBLIC_*` member access is required for Expo production
+// inlining (babel-preset-expo). Dynamic `process.env[key]` is left as a runtime
+// lookup and is empty in production web bundles.
 export const publicConfig = {
-  supabaseUrl: normalizeSupabaseUrl(env('EXPO_PUBLIC_SUPABASE_URL')),
-  supabasePublishableKey: env('EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY'),
+  supabaseUrl: normalizeSupabaseUrl(
+    process.env.EXPO_PUBLIC_SUPABASE_URL || extraString('EXPO_PUBLIC_SUPABASE_URL'),
+  ),
+  supabasePublishableKey:
+    process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY || extraString('EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY'),
   revenueCatIosKey: env('EXPO_PUBLIC_REVENUECAT_IOS_API_KEY'),
   revenueCatAndroidKey: env('EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY'),
   revenueCatEntitlementId: env('EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID') || 'basic',
