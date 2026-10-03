@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { goBackOrHome } from '@/lib/navigation';
 import { useTheme } from '@/providers/theme-provider';
 
 export function ScreenHeader({
@@ -23,7 +23,7 @@ export function ScreenHeader({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Go back"
-          onPress={() => router.back()}
+          onPress={goBackOrHome}
           style={[styles.back, { backgroundColor: colors.accentSoft }]}
         >
           <Ionicons name="chevron-back" size={20} color={colors.text} />

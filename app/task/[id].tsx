@@ -1,4 +1,4 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Alert, Text } from 'react-native';
 
@@ -9,6 +9,7 @@ import { Screen } from '@/components/Screen';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { formatDate, formatTime } from '@/lib/dates';
 import { userFacingError } from '@/lib/errors';
+import { goBackOrHome } from '@/lib/navigation';
 import { useStudy } from '@/providers/study-provider';
 import { useTheme } from '@/providers/theme-provider';
 
@@ -34,7 +35,7 @@ export default function TaskDetail() {
     setSaving(true);
     try {
       await updateTask(task.id, { title, scheduledAt: date });
-      router.back();
+      goBackOrHome();
     } catch (error) {
       Alert.alert('Task', userFacingError(error, 'Unable to update the task.'));
     } finally {
@@ -78,7 +79,7 @@ export default function TaskDetail() {
               style: 'destructive',
               onPress: async () => {
                 await deleteTask(task.id);
-                router.back();
+                goBackOrHome();
               },
             },
           ])

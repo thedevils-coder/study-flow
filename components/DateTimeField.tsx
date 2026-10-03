@@ -1,34 +1,13 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { createElement, useCallback, useState } from 'react';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Platform, Pressable, StyleSheet, Text } from 'react-native';
 
 import { Button } from '@/components/Button';
-import {
-  applyHtmlDateValue,
-  applyHtmlTimeValue,
-  combineDateAndTime,
-  htmlValueFromChangeEvent,
-  toHtmlDateValue,
-  toHtmlTimeValue,
-  usesHtmlDateTimePicker,
-} from '@/lib/dates';
+import type { DateTimeFieldProps } from '@/components/date-time-field';
+import { combineDateAndTime } from '@/lib/dates';
 import { useTheme } from '@/providers/theme-provider';
 
-type DateTimeFieldProps = {
-  label: string;
-  mode: 'date' | 'time';
-  value: Date | null;
-  displayText: string;
-  placeholder?: string;
-  onChange: (next: Date) => void;
-};
-
-export function DateTimeField(props: DateTimeFieldProps) {
-  if (usesHtmlDateTimePicker(Platform.OS)) return <WebDateTimeField {...props} />;
-  return <NativeDateTimeField {...props} />;
-}
-
-function NativeDateTimeField({
+export function DateTimeField({
   label,
   mode,
   value,
@@ -68,46 +47,6 @@ function NativeDateTimeField({
   );
 }
 
-function WebDateTimeField({ label, mode, value, onChange }: DateTimeFieldProps) {
-  const { colors } = useTheme();
-  const inputValue = value ? (mode === 'date' ? toHtmlDateValue(value) : toHtmlTimeValue(value)) : '';
-
-  const handleChange = useCallback(
-    (event: unknown) => {
-      const nextValue = htmlValueFromChangeEvent(event);
-      if (!nextValue) return;
-      onChange(mode === 'date' ? applyHtmlDateValue(value, nextValue) : applyHtmlTimeValue(value, nextValue));
-    },
-    [mode, onChange, value],
-  );
-
-  return (
-    <View style={[styles.field, styles.webField, { borderColor: colors.inputBorder, backgroundColor: colors.input }]}>
-      <Text style={{ color: colors.mutedText, fontWeight: '700' }}>{label}</Text>
-      {createElement('input', {
-        type: mode === 'date' ? 'date' : 'time',
-        value: inputValue,
-        onChange: handleChange,
-        onInput: handleChange,
-        'aria-label': label,
-        style: {
-          flexGrow: 1,
-          minWidth: 148,
-          height: 40,
-          margin: 0,
-          borderWidth: 0,
-          backgroundColor: 'transparent',
-          color: colors.text,
-          fontSize: 16,
-          fontWeight: '700',
-          textAlign: 'right',
-          outlineWidth: 0,
-        },
-      })}
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   field: {
     minHeight: 52,
@@ -118,8 +57,5 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-  },
-  webField: {
-    gap: 12,
   },
 });

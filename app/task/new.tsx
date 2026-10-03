@@ -1,4 +1,3 @@
-import { router } from 'expo-router';
 import { useState } from 'react';
 import { Alert } from 'react-native';
 
@@ -9,6 +8,7 @@ import { Screen } from '@/components/Screen';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { formatDate, formatTime } from '@/lib/dates';
 import { userFacingError } from '@/lib/errors';
+import { goBackOrHome } from '@/lib/navigation';
 import { useStudy } from '@/providers/study-provider';
 
 export default function NewTask() {
@@ -21,7 +21,7 @@ export default function NewTask() {
     setSaving(true);
     try {
       await createTask(title, date);
-      router.back();
+      goBackOrHome();
     } catch (error) {
       Alert.alert('Task', userFacingError(error, 'Unable to save the task.'));
     } finally {
