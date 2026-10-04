@@ -1,13 +1,13 @@
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Alert, Platform, Pressable, StyleSheet, Text } from 'react-native';
+import { Alert, Text } from 'react-native';
 
 import { Button } from '@/components/Button';
 import { Input } from '@/components/Input';
+import { PlatformDateTimePicker } from '@/components/PlatformDateTimePicker';
 import { Screen } from '@/components/Screen';
 import { ScreenHeader } from '@/components/ScreenHeader';
-import { combineDateAndTime, formatDate, formatTime } from '@/lib/dates';
+import { formatDate, formatTime } from '@/lib/dates';
 import { userFacingError } from '@/lib/errors';
 import { useStudy } from '@/providers/study-provider';
 import { useTheme } from '@/providers/theme-provider';
@@ -19,7 +19,6 @@ export default function TaskDetail() {
   const task = useMemo(() => tasks.find((item) => item.id === id), [tasks, id]);
   const [title, setTitle] = useState(task?.title ?? '');
   const [date, setDate] = useState(task?.scheduledAt ? new Date(task.scheduledAt) : new Date());
-  const [picker, setPicker] = useState<'date' | 'time' | null>(null);
   const [saving, setSaving] = useState(false);
 
   if (!task) {
@@ -47,26 +46,20 @@ export default function TaskDetail() {
     <Screen>
       <ScreenHeader title="Edit task" back />
       <Input label="Title" value={title} onChangeText={setTitle} />
-      <Pressable onPress={() => setPicker('date')} style={[styles.field, { borderColor: colors.inputBorder, backgroundColor: colors.input }]}>
-        <Text style={{ color: colors.mutedText, fontWeight: '700' }}>Date</Text>
-        <Text style={{ color: colors.text, fontWeight: '700' }}>{formatDate(date)}</Text>
-      </Pressable>
-      <Pressable onPress={() => setPicker('time')} style={[styles.field, { borderColor: colors.inputBorder, backgroundColor: colors.input }]}>
-        <Text style={{ color: colors.mutedText, fontWeight: '700' }}>Time</Text>
-        <Text style={{ color: colors.text, fontWeight: '700' }}>{formatTime(date)}</Text>
-      </Pressable>
-      {picker ? (
-        <DateTimePicker
-          value={date}
-          mode={picker}
-          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-          onChange={(_, selected) => {
-            if (Platform.OS !== 'ios') setPicker(null);
-            if (!selected) return;
-            setDate((current) => (picker === 'date' ? combineDateAndTime(selected, current) : combineDateAndTime(current, selected)));
-          }}
-        />
-      ) : null}
+      <PlatformDateTimePicker
+        label="Date"
+        mode="date"
+        value={date}
+        displayText={formatDate(date)}
+        onChange={setDate}
+      />
+      <PlatformDateTimePicker
+        label="Time"
+        mode="time"
+        value={date}
+        displayText={formatTime(date)}
+        onChange={setDate}
+      />
       <Button
         label={task.completed ? 'Mark incomplete' : 'Mark complete'}
         variant="secondary"
@@ -94,16 +87,3 @@ export default function TaskDetail() {
     </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  field: {
-    minHeight: 52,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    marginBottom: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-});
