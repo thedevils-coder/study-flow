@@ -1,7 +1,11 @@
 {
   "deno.enable": true,
-  "deno.enablePaths": ["supabase/functions"],
+  "deno.enablePaths": ["./supabase/functions"],
   "deno.config": "./supabase/functions/deno.json",
+  "deno.path": "${workspaceFolder}/node_modules/.bin/deno",
   "deno.lint": true,
-  "deno.unstable": false
+  "deno.unstable": false,
+  "deno.cacheOnSave": true,
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true
 }

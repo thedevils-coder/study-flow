@@ -1,1 +1,26 @@
-{"extends":"expo/tsconfig.base","compilerOptions":{"strict":true,"paths":{"@/*":["./*"]}},"include":["**/*.ts","**/*.tsx",".expo/types/**/*.ts","expo-env.d.ts"],"exclude":["supabase/functions/**"]}
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "paths": {
+      "@/*": ["./*"]
+    }
+  },
+  "include": [
+    "app/**/*.ts",
+    "app/**/*.tsx",
+    "components/**/*.ts",
+    "components/**/*.tsx",
+    "constants/**/*.ts",
+    "lib/**/*.ts",
+    "providers/**/*.ts",
+    "providers/**/*.tsx",
+    "services/**/*.ts",
+    "tests/**/*.ts",
+    "types/**/*.ts",
+    "vitest.config.ts",
+    ".expo/types/**/*.ts",
+    "expo-env.d.ts"
+  ],
+  "exclude": ["node_modules", "dist", "supabase"]
+}
