@@ -16,3 +16,4 @@ google-services.json
 *.keystore
 *.p8
 *.p12
+supabase/.temp/

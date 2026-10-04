@@ -30,4 +30,11 @@ export const leoSessionStore = {
   async clearShared() {
     await AsyncStorage.removeItem(LEGACY_LEO_STORAGE_KEY);
   },
+
+  async clearUser(userId: string) {
+    await AsyncStorage.removeItem(LEGACY_LEO_STORAGE_KEY);
+    if (userId) {
+      await AsyncStorage.removeItem(leoConversationStorageKey(userId));
+    }
+  },
 };

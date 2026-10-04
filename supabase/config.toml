@@ -1,0 +1,16 @@
+project_id = "study-flow"
+
+[functions]
+import_map = "./functions/deno.json"
+
+[functions.delete-account]
+verify_jwt = true
+
+[functions.admin-stats]
+verify_jwt = true
+
+[functions.ai-generate]
+verify_jwt = true
+
+[functions.revenuecat-webhook]
+verify_jwt = false

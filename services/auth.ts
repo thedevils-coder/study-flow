@@ -155,5 +155,6 @@ export const authService = {
       method: 'POST',
     });
     if (error) throw error;
+    await getSupabase().auth.signOut({ scope: 'local' });
   },
 };
