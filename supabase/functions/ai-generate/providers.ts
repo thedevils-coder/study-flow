@@ -1,4 +1,6 @@
-type ChatTurn = { role: 'system' | 'user' | 'assistant'; content: string };
+/// <reference path="../runtime.d.ts" />
+export type ChatTurn = { role: 'system' | 'user' | 'assistant'; content: string };
+export type GeminiGroundingChunk = { web?: { uri?: string; title?: string } };
 type Attachment = { name?: string; mime?: string; kind?: string; dataBase64?: string };
 
 export function configuredSecret(value: string | null | undefined) {
@@ -75,7 +77,6 @@ function isGeminiModelNotFound(raw: string) {
   return /NOT_FOUND|is not found|not supported for generateContent|no longer available/i.test(raw);
 }
 
-
 export function isGeminiQuotaError(httpStatus?: number, raw?: string) {
   if (httpStatus === 429) return true;
   return /RESOURCE_EXHAUSTED|exceeded your current quota|quota.*billing/i.test(raw ?? '');
@@ -149,8 +150,6 @@ function collectGeminiParts(payload: Record<string, unknown>) {
   return parts;
 }
 
-
-function extractGeminiText(data: unknown): string {
 function extractGeminiText(data: unknown, options: { includeThoughtFallback?: boolean } = {}): string {
   const payloads = Array.isArray(data) ? data : data ? [data] : [];
   const visible: string[] = [];
@@ -173,7 +172,6 @@ function extractGeminiText(data: unknown, options: { includeThoughtFallback?: bo
     }
   }
 
-  return (visible.join('') || thought.join('\n')).trim();
   const visibleText = visible.join('');
   if (visibleText.trim()) return visibleText;
   if (options.includeThoughtFallback === false) return '';
@@ -191,8 +189,6 @@ function extractGeminiTextFromStreamBody(raw: string) {
       const payload = line.slice(5).trim();
       if (!payload || payload === '[DONE]') continue;
       try {
-
-        const delta = extractGeminiText(JSON.parse(payload));
         const delta = extractGeminiText(JSON.parse(payload), { includeThoughtFallback: false });
         if (delta) chunks.push(delta);
       } catch {
@@ -202,8 +198,6 @@ function extractGeminiTextFromStreamBody(raw: string) {
     if (chunks.length) return chunks.join('').trim();
   }
   try {
-
-    return extractGeminiText(JSON.parse(text));
     return extractGeminiText(JSON.parse(text)).trim();
   } catch {
     return chunks.join('').trim();
@@ -311,8 +305,6 @@ export async function chatGemini(input: {
         thinkingLevel: input.thinkingLevel ?? 'medium',
         includeThoughts: false,
       },
-      // Gemini 3.x ignores custom temperature. Do not add stopSequences:
-      // they can truncate a thorough answer.
     },
   };
   if (input.withSearch) body.tools = [{ google_search: {} }];
@@ -339,8 +331,6 @@ export async function chatGemini(input: {
     const fallback = fallbackGeminiChatModel(model, errText);
     if (fallback) {
       return chatGemini({ ...input, model: fallback, stream: false });
-    if (isGeminiModelNotFound(errText) && model !== DEFAULT_GEMINI_CHAT_MODEL) {
-      return chatGemini({ ...input, model: DEFAULT_GEMINI_CHAT_MODEL, stream: false });
     }
     throw new ProviderError(
       formatGeminiProviderError(
@@ -354,16 +344,30 @@ export async function chatGemini(input: {
     );
   }
 
-  const collectSources = (data: Record<string, unknown>) => {
-    const candidate = Array.isArray(data.candidates) ? (data.candidates[0] as Record<string, unknown> | undefined) : undefined;
-    const metadata = candidate?.groundingMetadata as { groundingChunks?: unknown[] } | undefined;
-    return metadata?.groundingChunks ?? [];
+  const collectSources = (data: Record<string, unknown>): GeminiGroundingChunk[] => {
+    const candidate = Array.isArray(data.candidates) ? asRecord(data.candidates[0]) : null;
+    const metadata = asRecord(candidate?.groundingMetadata) ?? asRecord(candidate?.grounding_metadata);
+    const raw = metadata?.groundingChunks ?? metadata?.grounding_chunks;
+    if (!Array.isArray(raw)) return [];
+    return raw.flatMap((item) => {
+      const record = asRecord(item);
+      if (!record) return [];
+      const web = asRecord(record.web);
+      return [
+        {
+          web: web
+            ? {
+                uri: typeof web.uri === 'string' ? web.uri : undefined,
+                title: typeof web.title === 'string' ? web.title : undefined,
+              }
+            : undefined,
+        },
+      ];
+    });
   };
 
   if (!input.stream) {
     const data = (await response.json()) as Record<string, unknown>;
-
-    return { answer: extractGeminiText(data), chunks: collectSources(data) };
     return { answer: extractGeminiText(data).trim(), chunks: collectSources(data) };
   }
 
@@ -376,7 +380,7 @@ export async function chatGemini(input: {
   let raw = '';
   let buffer = '';
   let answer = '';
-  let chunks: unknown[] = [];
+  let chunks: GeminiGroundingChunk[] = [];
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
@@ -390,8 +394,6 @@ export async function chatGemini(input: {
       if (!line) continue;
       try {
         const json = JSON.parse(line.slice(5).trim()) as Record<string, unknown>;
-
-        const delta = extractGeminiText(json);
         const delta = extractGeminiText(json, { includeThoughtFallback: false });
         if (delta) {
           answer += delta;

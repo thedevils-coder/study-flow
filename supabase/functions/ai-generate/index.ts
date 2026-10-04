@@ -1,5 +1,7 @@
-import { createClient } from 'npm:@supabase/supabase-js@2';
+/// <reference path="../runtime.d.ts" />
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
+import type { Database, Json } from '../database.types.ts';
 import { buildStudyPdf } from './pdf.ts';
 import {
   chatGemini,
@@ -14,6 +16,7 @@ import {
   resolveGeminiChatModel,
   selectResearchProvider,
   selectTextChatProvider,
+  type ChatTurn as ProviderChatTurn,
 } from './providers.ts';
 
 const cors = {
@@ -177,8 +180,11 @@ function sanitizeSources(input: unknown): Source[] {
   return sources.slice(0, 8);
 }
 
-function packMessages(history: ChatTurn[], prompt: string) {
-  const recent = history.slice(-8).map((item) => ({
+function packMessages(
+  history: ChatTurn[],
+  prompt: string,
+): Array<{ role: 'user' | 'assistant'; content: string }> {
+  const recent: Array<{ role: 'user' | 'assistant'; content: string }> = history.slice(-8).map((item) => ({
     role: item.role === 'assistant' ? 'assistant' : 'user',
     content: String(item.content || '').slice(0, 1800),
   }));
@@ -189,7 +195,7 @@ function packMessages(history: ChatTurn[], prompt: string) {
         .map((item) => `${item.role === 'user' ? 'Student' : 'Leo'}: ${String(item.content || '').slice(0, 160)}`)
         .join('\n')
     : '';
-  const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [];
+  const messages: Array<{ role: 'user' | 'assistant'; content: string }> = [];
   if (summary) messages.push({ role: 'user', content: `Earlier in this conversation:\n${summary}` });
   messages.push(...recent);
   messages.push({ role: 'user', content: prompt });
@@ -210,7 +216,7 @@ function thinkingLevel(detailLevel: DetailLevel): 'low' | 'medium' {
 const sendSse = (event: string, data: unknown) =>
   new TextEncoder().encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
 
-Deno.serve(async (request) => {
+Deno.serve(async (request: Request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: cors });
   const payload = await request.json().catch(() => ({}));
   const wantsStream = Boolean(payload.stream) || /text\/event-stream/i.test(request.headers.get('accept') || '');
@@ -222,10 +228,10 @@ Deno.serve(async (request) => {
     return fail(500, 'The ai-generate function is missing SUPABASE_URL, SUPABASE_ANON_KEY, or SUPABASE_SERVICE_ROLE_KEY.', 'server_not_configured');
   }
 
-  const userClient = createClient(supabaseUrl, anonKey, {
+  const userClient = createClient<Database>(supabaseUrl, anonKey, {
     global: { headers: { Authorization: request.headers.get('Authorization') ?? '' } },
   });
-  const admin = createClient(supabaseUrl, serviceKey);
+  const admin = createClient<Database>(supabaseUrl, serviceKey);
   const { data: userData, error: userError } = await userClient.auth.getUser();
   if (userError || !userData.user) return fail(401, 'Sign in required.', 'unauthenticated');
 
@@ -254,7 +260,7 @@ Deno.serve(async (request) => {
       const existingOwners = [
         ...new Set(
           (existing.data ?? [])
-            .map((row: { user_id?: string | null }) => String(row.user_id || ''))
+            .map((row) => String(row.user_id || ''))
             .filter(Boolean),
         ),
       ];
@@ -275,8 +281,8 @@ Deno.serve(async (request) => {
   }
 
   const entitlementIds = [...(subscription?.entitlement_ids ?? []), subscription?.entitlement_id, subscription?.product_id]
-    .filter(Boolean)
-    .map((value: string) => String(value).toLowerCase());
+    .filter((value): value is string => typeof value === 'string' && value.length > 0)
+    .map((value) => value.toLowerCase());
   const active =
     Boolean(subscription) &&
     ['active', 'cancelled', 'ending', 'pending'].includes(String(subscription?.state)) &&
@@ -362,7 +368,10 @@ Deno.serve(async (request) => {
       : '';
 
   const packed = packMessages(history, `${prompt}${studyContext ? `\n\nUser study context:\n${studyContext}` : ''}`);
-  const chatMessages = [{ role: 'system' as const, content: system }, ...packed];
+  const chatMessages: ProviderChatTurn[] = [
+    { role: 'system', content: system },
+    ...packed,
+  ];
   const useFast = route.mode === 'fast_answer' && route.detailLevel !== 'detailed';
   const textMode = !['image', 'pdf'].includes(route.mode);
 
@@ -412,10 +421,7 @@ Deno.serve(async (request) => {
         });
         text = result.answer;
         sources = sanitizeSources(
-          result.chunks.map((chunk) => {
-            const web = chunk && typeof chunk === 'object' ? (chunk as { web?: { uri?: string; title?: string } }).web : null;
-            return { url: web?.uri, title: web?.title };
-          }),
+          result.chunks.map((chunk) => ({ url: chunk.web?.uri, title: chunk.web?.title })),
         );
         grounded = sources.length > 0;
       } else if (route.mode === 'file_analysis') {
@@ -669,7 +675,7 @@ Deno.serve(async (request) => {
 });
 
 async function storeArtifact(
-  admin: ReturnType<typeof createClient>,
+  admin: SupabaseClient<Database>,
   userId: string,
   bytes: Uint8Array,
   mime: string,
@@ -692,7 +698,7 @@ async function storeArtifact(
 }
 
 async function storeSuccess(
-  admin: ReturnType<typeof createClient>,
+  admin: SupabaseClient<Database>,
   input: {
     userId: string;
     kind: Kind;
@@ -726,7 +732,7 @@ async function storeSuccess(
       provider: input.provider,
       conversationId: input.conversationId,
       status: 'success',
-    },
+    } satisfies Json,
     model: input.model,
     status: 'success',
     provider: input.provider,

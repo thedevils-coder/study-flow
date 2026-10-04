@@ -1,11 +1,15 @@
 {
   "compilerOptions": {
     "lib": ["deno.window"],
-    "strict": true
+    "strict": true,
+    "noImplicitAny": true
   },
   "imports": {
-    "@supabase/supabase-js": "npm:@supabase/supabase-js@2"
+    "@supabase/supabase-js": "npm:@supabase/supabase-js@2",
+    "npm:@supabase/supabase-js@2": "npm:@supabase/supabase-js@2",
+    "jsr:@supabase/supabase-js@2": "npm:@supabase/supabase-js@2"
   },
   "nodeModulesDir": "auto",
-  "lock": true
+  "lock": true,
+  "exclude": ["**/node_modules"]
 }

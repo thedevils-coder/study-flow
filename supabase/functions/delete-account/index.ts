@@ -1,5 +1,7 @@
-/// <reference path="./runtime.d.ts" />
+/// <reference path="../runtime.d.ts" />
 import { createClient } from '@supabase/supabase-js';
+
+import type { Database } from '../database.types.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -51,7 +53,7 @@ Deno.serve(async (req: Request) => {
       return json({ error: 'Missing Authorization header.' }, 401);
     }
 
-    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+    const userClient = createClient<Database>(supabaseUrl, supabaseAnonKey, {
       global: {
         headers: {
           Authorization: authorization,
@@ -82,7 +84,7 @@ Deno.serve(async (req: Request) => {
 
     console.log('Deleting account:', user.id);
 
-    const adminClient = createClient(supabaseUrl, supabaseServiceRoleKey, {
+    const adminClient = createClient<Database>(supabaseUrl, supabaseServiceRoleKey, {
       auth: {
         autoRefreshToken: false,
         persistSession: false,
