@@ -159,8 +159,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       },
 
       async deleteAccount() {
+        const userId = session?.id;
         await authService.deleteAccount();
-        await leoSessionStore.clearShared();
+        if (userId) await leoSessionStore.clearUser(userId);
+        else await leoSessionStore.clearShared();
         setSession(null);
       },
 
