@@ -1,3 +1,4 @@
+/// <reference path="./runtime.d.ts" />
 import { createClient } from '@supabase/supabase-js';
 
 const corsHeaders = {
@@ -108,6 +109,37 @@ Deno.serve(async (req: Request) => {
         console.error('delete table error:', table, tableError);
         return json({ error: 'Unable to delete account data.' }, 500);
       }
+    }
+
+    const artifacts = adminClient.storage.from('ai-artifacts');
+    for (let offset = 0; ; offset += 1000) {
+      const { data: objects, error: listError } = await artifacts.list(user.id, {
+        limit: 1000,
+        offset,
+      });
+
+      if (listError) {
+        console.error('list artifacts error:', listError);
+        return json({ error: 'Unable to delete account data.' }, 500);
+      }
+
+      if (!objects || objects.length === 0) break;
+
+      const paths = objects
+        .map((object) => object.name)
+        .filter((name): name is string => Boolean(name))
+        .filter((name) => !name.includes('/') && name !== '..' && name !== '.')
+        .map((name) => `${user.id}/${name}`);
+
+      if (paths.length > 0) {
+        const { error: removeError } = await artifacts.remove(paths);
+        if (removeError) {
+          console.error('remove artifacts error:', removeError);
+          return json({ error: 'Unable to delete account data.' }, 500);
+        }
+      }
+
+      if (objects.length < 1000) break;
     }
 
     const { error: profileError } = await adminClient
