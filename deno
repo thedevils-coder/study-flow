@@ -1,14 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
-if [[ -x "$ROOT/node_modules/deno/deno" ]]; then
-  exec "$ROOT/node_modules/deno/deno" "$@"
+DENO_EXE="$ROOT/.tools/bin/deno"
+if [[ ! -x "$DENO_EXE" ]]; then
+  node "$ROOT/scripts/install-deno.cjs"
 fi
-if [[ -x "$ROOT/node_modules/.bin/deno" ]]; then
-  exec "$ROOT/node_modules/.bin/deno" "$@"
+if [[ ! -x "$DENO_EXE" ]]; then
+  echo "Deno is not installed. Run npm install in the project root." >&2
+  exit 1
 fi
-if [[ -f "$ROOT/node_modules/deno/bin.cjs" ]]; then
-  exec node "$ROOT/node_modules/deno/bin.cjs" "$@"
-fi
-echo "Deno is not installed. Run npm install in the project root." >&2
-exit 1
+exec "$DENO_EXE" "$@"

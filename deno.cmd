@@ -1,21 +1,15 @@
 @echo off
 setlocal EnableExtensions
 set "ROOT=%~dp0"
+set "DENO_EXE=%ROOT%.tools\bin\deno.exe"
 
-if exist "%ROOT%node_modules\deno\deno.exe" (
-  "%ROOT%node_modules\deno\deno.exe" %*
-  exit /b %ERRORLEVEL%
+if not exist "%DENO_EXE%" (
+  node "%ROOT%scripts\install-deno.cjs"
+  if errorlevel 1 exit /b 1
 )
-if exist "%ROOT%node_modules\@deno\win32-x64\deno.exe" (
-  "%ROOT%node_modules\@deno\win32-x64\deno.exe" %*
-  exit /b %ERRORLEVEL%
-)
-if exist "%ROOT%node_modules\@deno\win32-arm64\deno.exe" (
-  "%ROOT%node_modules\@deno\win32-arm64\deno.exe" %*
-  exit /b %ERRORLEVEL%
-)
-if exist "%ROOT%node_modules\deno\bin.cjs" (
-  node "%ROOT%node_modules\deno\bin.cjs" %*
+
+if exist "%DENO_EXE%" (
+  "%DENO_EXE%" %*
   exit /b %ERRORLEVEL%
 )
 

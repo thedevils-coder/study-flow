@@ -1,20 +1,14 @@
 $Root = $PSScriptRoot
-$Candidates = @(
-  (Join-Path $Root 'node_modules\deno\deno.exe'),
-  (Join-Path $Root 'node_modules\@deno\win32-x64\deno.exe'),
-  (Join-Path $Root 'node_modules\@deno\win32-arm64\deno.exe')
-)
+$Exe = Join-Path $Root '.tools\bin\deno.exe'
+$Installer = Join-Path $Root 'scripts\install-deno.cjs'
 
-foreach ($Exe in $Candidates) {
-  if (Test-Path -LiteralPath $Exe) {
-    & $Exe @args
-    exit $LASTEXITCODE
-  }
+if (-not (Test-Path -LiteralPath $Exe)) {
+  & node $Installer
+  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 
-$BinCjs = Join-Path $Root 'node_modules\deno\bin.cjs'
-if (Test-Path -LiteralPath $BinCjs) {
-  & node $BinCjs @args
+if (Test-Path -LiteralPath $Exe) {
+  & $Exe @args
   exit $LASTEXITCODE
 }
 
