@@ -9,12 +9,41 @@
   "typescript.tsdk": "node_modules/typescript/lib",
   "typescript.enablePromptUseWorkspaceTsdk": true,
   "terminal.integrated.env.windows": {
-    "Path": "${workspaceFolder};${workspaceFolder}\\node_modules\\.bin;${workspaceFolder}\\node_modules\\deno;${env:Path}"
+    "PATH": "${workspaceFolder}\\node_modules\\deno;${workspaceFolder}\\node_modules\\.bin;${env:PATH}"
   },
   "terminal.integrated.env.linux": {
-    "PATH": "${workspaceFolder}:${workspaceFolder}/node_modules/.bin:${workspaceFolder}/node_modules/deno:${env:PATH}"
+    "PATH": "${workspaceFolder}/node_modules/.bin:${workspaceFolder}/node_modules/deno:${env:PATH}"
   },
   "terminal.integrated.env.osx": {
-    "PATH": "${workspaceFolder}:${workspaceFolder}/node_modules/.bin:${workspaceFolder}/node_modules/deno:${env:PATH}"
+    "PATH": "${workspaceFolder}/node_modules/.bin:${workspaceFolder}/node_modules/deno:${env:PATH}"
+  },
+  "terminal.integrated.profiles.windows": {
+    "PowerShell": {
+      "source": "PowerShell",
+      "icon": "terminal-powershell",
+      "env": {
+        "PATH": "${workspaceFolder}\\node_modules\\deno;${workspaceFolder}\\node_modules\\.bin;${env:PATH}"
+      }
+    },
+    "Windows PowerShell": {
+      "path": [
+        "${env:windir}\\Sysnative\\WindowsPowerShell\\v1.0\\powershell.exe",
+        "${env:windir}\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
+      ],
+      "icon": "terminal-powershell",
+      "env": {
+        "PATH": "${workspaceFolder}\\node_modules\\deno;${workspaceFolder}\\node_modules\\.bin;${env:PATH}"
+      }
+    },
+    "Command Prompt": {
+      "path": [
+        "${env:windir}\\Sysnative\\cmd.exe",
+        "${env:windir}\\System32\\cmd.exe"
+      ],
+      "icon": "terminal-cmd",
+      "env": {
+        "PATH": "${workspaceFolder}\\node_modules\\deno;${workspaceFolder}\\node_modules\\.bin;${env:PATH}"
+      }
+    }
   }
 }
