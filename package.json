@@ -8,7 +8,9 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "web:export": "expo export --platform web",
+    "postinstall": "node scripts/install-deno.cjs",
     "typecheck": "tsc --noEmit",
+    "typecheck:functions": "tsc --noEmit -p supabase/functions",
     "lint": "expo lint",
     "test": "vitest run"
   },

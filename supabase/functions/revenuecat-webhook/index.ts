@@ -1,16 +1,31 @@
-import { createClient } from 'npm:@supabase/supabase-js@2';
+/// <reference path="../runtime.d.ts" />
+import { createClient } from '@supabase/supabase-js';
 
-Deno.serve(async (request) => {
+import type { Database } from '../database.types.ts';
+
+type RevenueCatEvent = {
+  app_user_id?: string;
+  type?: string;
+  entitlement_ids?: string[];
+  entitlement_id?: string;
+  product_id?: string | null;
+  expiration_at_ms?: number | null;
+  will_renew?: boolean;
+};
+
+Deno.serve(async (request: Request) => {
   const secret = Deno.env.get('REVENUECAT_WEBHOOK_SECRET');
   if (!secret || request.headers.get('authorization') !== `Bearer ${secret}`) {
     return new Response('Unauthorized', { status: 401 });
   }
 
-  const payload = await request.json().catch(() => ({}));
+  const payload = (await request.json().catch(() => ({}))) as {
+    event?: RevenueCatEvent;
+  } & RevenueCatEvent;
   const event = payload.event ?? payload;
   if (!event?.app_user_id) return new Response('Invalid event', { status: 400 });
 
-  const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+  const admin = createClient<Database>(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
   const type = String(event.type || '');
   const state = type.includes('EXPIRATION')
     ? 'expired'

@@ -1,4 +1,7 @@
-import { createClient } from 'npm:@supabase/supabase-js@2';
+/// <reference path="../runtime.d.ts" />
+import { createClient } from '@supabase/supabase-js';
+
+import type { Database } from '../database.types.ts';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -12,7 +15,7 @@ const json = (body: unknown, status = 200) =>
     headers: { 'Content-Type': 'application/json', ...cors },
   });
 
-Deno.serve(async (request) => {
+Deno.serve(async (request: Request) => {
   if (request.method === 'OPTIONS') {
     return new Response('ok', { headers: cors });
   }
@@ -22,13 +25,13 @@ Deno.serve(async (request) => {
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
   if (!supabaseUrl || !anonKey || !serviceKey) return json({ error: 'Server is not configured.' }, 500);
 
-  const userClient = createClient(supabaseUrl, anonKey, {
+  const userClient = createClient<Database>(supabaseUrl, anonKey, {
     global: { headers: { Authorization: request.headers.get('Authorization') ?? '' } },
   });
   const { data, error } = await userClient.auth.getUser();
   if (error || !data.user) return json({ error: 'Unauthorized' }, 401);
 
-  const admin = createClient(supabaseUrl, serviceKey);
+  const admin = createClient<Database>(supabaseUrl, serviceKey);
   const { data: profile } = await admin.from('profiles').select('role').eq('id', data.user.id).maybeSingle();
   if (profile?.role !== 'admin') return json({ error: 'Forbidden' }, 403);
 
