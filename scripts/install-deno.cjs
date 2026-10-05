@@ -59,35 +59,34 @@ function extractZip(zipPath, destDir) {
     fail(`Downloaded file is not a zip archive: ${zipPath}`);
   }
 
-  if (IS_WIN) {
-    const result = spawnSync(
-      'powershell.exe',
-      [
-        '-NoProfile',
-        '-ExecutionPolicy',
-        'Bypass',
-        '-Command',
-        `Expand-Archive -LiteralPath '${zipPath.replace(/'/g, "''")}' -DestinationPath '${destDir.replace(/'/g, "''")}' -Force`,
-      ],
-      { stdio: 'inherit' },
-    );
-    if (result.status !== 0) {
-      fail(`Could not extract ${zipPath} with Expand-Archive.`);
-    }
-    return;
+  const zipPy = 'import zipfile,sys; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])';
+  const attempts = IS_WIN
+    ? [
+        ['tar', ['-xf', zipPath, '-C', destDir]],
+        [
+          'powershell.exe',
+          [
+            '-NoProfile',
+            '-ExecutionPolicy',
+            'Bypass',
+            '-Command',
+            `Expand-Archive -LiteralPath '${zipPath.replace(/'/g, "''")}' -DestinationPath '${destDir.replace(/'/g, "''")}' -Force`,
+          ],
+        ],
+        ['py', ['-3', '-c', zipPy, zipPath, destDir]],
+        ['python', ['-c', zipPy, zipPath, destDir]],
+      ]
+    : [
+        ['unzip', ['-o', zipPath, '-d', destDir]],
+        ['python3', ['-c', zipPy, zipPath, destDir]],
+      ];
+
+  for (const [command, args] of attempts) {
+    const result = spawnSync(command, args, { stdio: 'inherit' });
+    if (result.status === 0) return;
   }
 
-  const unzip = spawnSync('unzip', ['-o', zipPath, '-d', destDir], { stdio: 'inherit' });
-  if (unzip.status === 0) return;
-
-  const python = spawnSync(
-    'python3',
-    ['-c', 'import zipfile,sys; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])', zipPath, destDir],
-    { stdio: 'inherit' },
-  );
-  if (python.status !== 0) {
-    fail(`Could not extract ${zipPath}.`);
-  }
+  fail(`Could not extract ${zipPath}.`);
 }
 
 async function main() {
