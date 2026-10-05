@@ -1,13 +1,13 @@
 import React from 'react';
 import {
   ActivityIndicator,
-  Pressable,
   StyleSheet,
   Text,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
 
+import { TapTarget } from '@/components/TapTarget';
 import { radius } from '@/constants/theme';
 import { useTheme } from '@/providers/theme-provider';
 
@@ -41,7 +41,7 @@ export function Button({
     variant === 'secondary' || variant === 'ghost' ? colors.accent : colors.accentText;
 
   return (
-    <Pressable
+    <TapTarget
       accessibilityRole="button"
       onPress={onPress}
       disabled={disabled || loading}
@@ -57,7 +57,7 @@ export function Button({
       ) : (
         <Text style={[styles.label, { color: textColor }]}>{label}</Text>
       )}
-    </Pressable>
+    </TapTarget>
   );
 }
 

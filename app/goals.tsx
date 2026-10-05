@@ -1,16 +1,18 @@
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { useState } from 'react';
-import { Alert, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { EmptyState } from '@/components/EmptyState';
 import { GoalCard } from '@/components/GoalCard';
 import { Input } from '@/components/Input';
+import { PlatformDateTimePicker } from '@/components/PlatformDateTimePicker';
 import { Screen } from '@/components/Screen';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { formatShortDate } from '@/lib/dates';
+import { alertDialog, confirmDialog } from '@/lib/dialog';
 import { userFacingError } from '@/lib/errors';
+import { webDebug } from '@/lib/web-debug';
 import { useStudy } from '@/providers/study-provider';
 import { useTheme } from '@/providers/theme-provider';
 
@@ -21,10 +23,10 @@ export default function Goals() {
   const [target, setTarget] = useState('');
   const [unit, setUnit] = useState('hours');
   const [due, setDue] = useState<Date | null>(null);
-  const [showDue, setShowDue] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const save = async () => {
+    webDebug('Add Goal pressed');
     setSaving(true);
     try {
       await createGoal(title, target, unit, due);
@@ -32,7 +34,7 @@ export default function Goals() {
       setTarget('');
       setDue(null);
     } catch (error) {
-      Alert.alert('Goal', userFacingError(error, 'Unable to save the goal.'));
+      await alertDialog('Goal', userFacingError(error, 'Unable to save the goal.'));
     } finally {
       setSaving(false);
     }
@@ -46,20 +48,14 @@ export default function Goals() {
         <Input label="Title" value={title} onChangeText={setTitle} placeholder="Study 20 hours this month" />
         <Input label="Target" value={target} onChangeText={setTarget} keyboardType="number-pad" placeholder="20" />
         <Input label="Unit" value={unit} onChangeText={setUnit} placeholder="hours" />
-        <Pressable onPress={() => setShowDue(true)} style={[styles.field, { borderColor: colors.inputBorder, backgroundColor: colors.input }]}>
-          <Text style={{ color: colors.mutedText, fontWeight: '700' }}>Due date</Text>
-          <Text style={{ color: colors.text, fontWeight: '700' }}>{due ? formatShortDate(due) : 'Optional'}</Text>
-        </Pressable>
-        {showDue ? (
-          <DateTimePicker
-            value={due ?? new Date()}
-            mode="date"
-            onChange={(_, selected) => {
-              setShowDue(Platform.OS === 'ios');
-              if (selected) setDue(selected);
-            }}
-          />
-        ) : null}
+        <PlatformDateTimePicker
+          label="Due date"
+          mode="date"
+          value={due}
+          displayText={due ? formatShortDate(due) : ''}
+          placeholder="Optional"
+          onChange={setDue}
+        />
         <Button label="Add goal" onPress={() => void save()} loading={saving} />
       </Card>
 
@@ -80,10 +76,15 @@ export default function Goals() {
                 label="Delete"
                 variant="danger"
                 onPress={() =>
-                  Alert.alert('Delete goal', `Delete “${goal.title}”?`, [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: 'Delete', style: 'destructive', onPress: () => void deleteGoal(goal.id) },
-                  ])
+                  void (async () => {
+                    const confirmed = await confirmDialog({
+                      title: 'Delete goal',
+                      message: `Delete “${goal.title}”?`,
+                      confirmLabel: 'Delete',
+                      destructive: true,
+                    });
+                    if (confirmed) await deleteGoal(goal.id);
+                  })()
                 }
               />
             </View>
@@ -96,15 +97,5 @@ export default function Goals() {
 
 const styles = StyleSheet.create({
   heading: { fontSize: 18, fontWeight: '800', marginBottom: 10 },
-  field: {
-    minHeight: 52,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    marginBottom: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
   controls: { flexDirection: 'row', gap: 8, marginBottom: 16 },
 });

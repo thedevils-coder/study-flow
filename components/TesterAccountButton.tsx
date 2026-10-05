@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { Alert, View } from 'react-native';
+import { View } from 'react-native';
 import { router } from 'expo-router';
 
 import { Button } from '@/components/Button';
 import { TestStateNotice } from '@/components/TestStateNotice';
 import { isSupabaseConfigured } from '@/lib/config';
+import { alertDialog } from '@/lib/dialog';
 import { userFacingError } from '@/lib/errors';
 import { TESTER_COPY, isTesterBuildEnabled } from '@/lib/tester';
 import { useAuth } from '@/providers/auth-provider';
@@ -21,7 +22,7 @@ export function TesterAccountButton() {
       await signInTester();
       router.replace('/');
     } catch (error) {
-      Alert.alert(
+      await alertDialog(
         'Tester / Demo Account',
         userFacingError(error, 'Unable to open the tester profile.'),
       );

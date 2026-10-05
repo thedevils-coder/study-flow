@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from 'react';
 
+import { WebDialogHost } from '@/components/WebDialogHost';
 import { ThemeProvider } from '@/providers/theme-provider';
 import { AuthProvider } from '@/providers/auth-provider';
 import { StudyProvider, useStudy } from '@/providers/study-provider';
@@ -29,7 +30,10 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
   return (
     <AuthProvider>
       <StudyProvider>
-        <ThemedTree>{children}</ThemedTree>
+        <ThemedTree>
+          {children}
+          <WebDialogHost />
+        </ThemedTree>
       </StudyProvider>
     </AuthProvider>
   );

@@ -25,6 +25,11 @@ module.exports = ({ config }) => {
       testerPassword: isProductionBuild
         ? ''
         : process.env.EXPO_PUBLIC_TESTER_PASSWORD || 'StudyFlow-Tester-Preview',
+      // Public client values only. Read from .env / .env.local / EAS env at config
+      // evaluation so production web export and native binaries both receive them.
+      // Never copy SUPABASE_SERVICE_ROLE_KEY (or any other Edge secret) into extra.
+      EXPO_PUBLIC_SUPABASE_URL: process.env.EXPO_PUBLIC_SUPABASE_URL || '',
+      EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY || '',
     },
     runtimeVersion: {
       policy: 'appVersion',

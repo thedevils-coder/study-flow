@@ -10,10 +10,12 @@ import { LoadingState } from '@/components/LoadingState';
 import { Screen } from '@/components/Screen';
 import { StatCard } from '@/components/StatCard';
 import { TaskRow } from '@/components/TaskRow';
+import { TapTarget } from '@/components/TapTarget';
 import { TestStateNotice } from '@/components/TestStateNotice';
 import { formatDate, formatDuration, greetingFor, startOfDay } from '@/lib/dates';
 import { displayPlanLabel } from '@/lib/entitlements';
 import { TESTER_COPY, isTesterBuildEnabled, isTesterSession } from '@/lib/tester';
+import { webDebug } from '@/lib/web-debug';
 import { useAuth } from '@/providers/auth-provider';
 import { useStudy } from '@/providers/study-provider';
 import { useTheme } from '@/providers/theme-provider';
@@ -76,9 +78,14 @@ export default function Home() {
 
       <View style={styles.heading}>
         <Text style={[styles.section, { color: colors.text, marginTop: 0 }]}>Today’s tasks</Text>
-        <Pressable onPress={() => router.push('/task/new')}>
+        <TapTarget
+          onPress={() => {
+            webDebug('Add Task pressed');
+            router.push('/task/new');
+          }}
+        >
           <Text style={{ color: colors.accent, fontWeight: '800' }}>Add</Text>
-        </Pressable>
+        </TapTarget>
       </View>
 
       {todaysTasks.length === 0 ? (
@@ -87,7 +94,10 @@ export default function Home() {
           title="No tasks yet"
           message="Add your first task to get started."
           actionLabel="Add task"
-          onAction={() => router.push('/task/new')}
+          onAction={() => {
+            webDebug('Add Task pressed');
+            router.push('/task/new');
+          }}
         />
       ) : (
         <Card padded={false}>

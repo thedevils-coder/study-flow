@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { Alert, StyleSheet, Text } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 
 import { Button } from '@/components/Button';
 import { Input } from '@/components/Input';
 import { Screen } from '@/components/Screen';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { alertDialog } from '@/lib/dialog';
 import { userFacingError } from '@/lib/errors';
 import { useAuth } from '@/providers/auth-provider';
 import { useTheme } from '@/providers/theme-provider';
@@ -17,15 +18,15 @@ export default function Recover() {
 
   const submit = async () => {
     if (!email.trim()) {
-      Alert.alert('Reset password', 'Enter the email for your account.');
+      await alertDialog('Reset password', 'Enter the email for your account.');
       return;
     }
     setLoading(true);
     try {
       await resetPassword(email);
-      Alert.alert('Check your email', 'If an account exists, a reset link is on its way.');
+      await alertDialog('Check your email', 'If an account exists, a reset link is on its way.');
     } catch (error) {
-      Alert.alert('Reset password', userFacingError(error, 'Unable to send a reset email.'));
+      await alertDialog('Reset password', userFacingError(error, 'Unable to send a reset email.'));
     } finally {
       setLoading(false);
     }
