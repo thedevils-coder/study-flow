@@ -18,18 +18,65 @@ export function ListRow({
   danger?: boolean;
 }) {
   const { colors } = useTheme();
+
+  const handlePress = () => {
+    console.log('[ListRow] pressed:', label);
+    onPress?.();
+  };
+
   return (
     <Pressable
-      onPress={onPress}
+      onPress={handlePress}
       disabled={!onPress}
-      style={[styles.row, { borderBottomColor: colors.divider }]}
+      style={({ pressed }) => [
+        styles.row,
+        {
+          borderBottomColor: colors.divider,
+          opacity: pressed ? 0.6 : 1,
+        },
+      ]}
     >
-      <View style={[styles.icon, { backgroundColor: danger ? colors.dangerSoft : colors.accentSoft }]}>
-        <Ionicons name={icon} size={18} color={danger ? colors.danger : colors.accent} />
+      <View
+        style={[
+          styles.icon,
+          {
+            backgroundColor: danger
+              ? colors.dangerSoft
+              : colors.accentSoft,
+          },
+        ]}
+      >
+        <Ionicons
+          name={icon}
+          size={18}
+          color={danger ? colors.danger : colors.accent}
+        />
       </View>
-      <Text style={[styles.label, { color: danger ? colors.danger : colors.text }]}>{label}</Text>
-      {value ? <Text style={[styles.value, { color: colors.mutedText }]}>{value}</Text> : null}
-      {onPress ? <Ionicons name="chevron-forward" size={16} color={colors.mutedText} /> : null}
+
+      <Text
+        style={[
+          styles.label,
+          {
+            color: danger ? colors.danger : colors.text,
+          },
+        ]}
+      >
+        {label}
+      </Text>
+
+      {value ? (
+        <Text style={[styles.value, { color: colors.mutedText }]}>
+          {value}
+        </Text>
+      ) : null}
+
+      {onPress ? (
+        <Ionicons
+          name="chevron-forward"
+          size={16}
+          color={colors.mutedText}
+        />
+      ) : null}
     </Pressable>
   );
 }
@@ -42,7 +89,19 @@ const styles = StyleSheet.create({
     gap: 12,
     borderBottomWidth: 1,
   },
-  icon: { padding: 8, borderRadius: 10 },
-  label: { flex: 1, fontWeight: '700', fontSize: 15 },
-  value: { fontSize: 13 },
+
+  icon: {
+    padding: 8,
+    borderRadius: 10,
+  },
+
+  label: {
+    flex: 1,
+    fontWeight: '700',
+    fontSize: 15,
+  },
+
+  value: {
+    fontSize: 13,
+  },
 });
