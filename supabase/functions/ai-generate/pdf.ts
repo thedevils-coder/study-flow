@@ -1,3 +1,4 @@
+/// <reference path="../runtime.d.ts" />
 import { PDFDocument, StandardFonts, rgb } from 'npm:pdf-lib@1.17.1';
 
 function wrap(text: string, width = 92) {

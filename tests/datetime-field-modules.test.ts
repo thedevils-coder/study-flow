@@ -60,7 +60,7 @@ describe('PlatformDateTimePicker web safety', () => {
         if (!source.includes("from '@react-native-community/datetimepicker'") && !source.includes('from "@react-native-community/datetimepicker"')) {
           continue;
         }
-        hits.push(path.relative(root, file));
+        hits.push(path.relative(root, file).replace(/\\/g, '/'));
       }
     }
     expect(hits).toEqual(['components/PlatformDateTimePicker.tsx']);
