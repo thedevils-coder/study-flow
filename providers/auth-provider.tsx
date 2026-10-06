@@ -9,8 +9,8 @@ import { hydrateProfile } from '@/services/profile';
 import { testerService } from '@/services/tester';
 import {
   configurePurchases,
-  customerInfo,
   purchaseProduct,
+  refreshPlayPurchases,
   restorePurchases,
   type SubscriptionSnapshot,
 } from '@/services/subscriptions';
@@ -61,7 +61,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Purchases are optional in Expo Go / unconfigured builds.
       }
       try {
-        const sub = await customerInfo();
+        const sub = await refreshPlayPurchases(profile);
         setSession(applyTesterDemoAccess({ ...profile, ...sub }));
       } catch {
         setSession(applyTesterDemoAccess(profile));
@@ -169,15 +169,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       async refreshSubscription() {
         if (!session) return;
-        applySubscription(await customerInfo());
+        applySubscription(await refreshPlayPurchases(session));
       },
 
       async purchase(productId) {
-        applySubscription(await purchaseProduct(productId));
+        if (!session) throw new Error('Sign in before purchasing.');
+        applySubscription(await purchaseProduct(productId, session));
       },
 
       async restore() {
-        applySubscription(await restorePurchases());
+        if (!session) throw new Error('Sign in before restoring purchases.');
+        applySubscription(await restorePurchases(session));
       },
     }),
     [session, ready, establish, applySubscription],

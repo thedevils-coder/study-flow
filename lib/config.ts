@@ -34,9 +34,6 @@ export const publicConfig = {
   ),
   supabasePublishableKey:
     process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY || extraString('EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY'),
-  revenueCatIosKey: env('EXPO_PUBLIC_REVENUECAT_IOS_API_KEY'),
-  revenueCatAndroidKey: env('EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY'),
-  revenueCatEntitlementId: env('EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID') || 'basic',
   testerEmail: testerAccountEnabled === false ? '' : env('EXPO_PUBLIC_TESTER_EMAIL') || extraString('testerEmail'),
   testerPassword:
     testerAccountEnabled === false
@@ -50,8 +47,3 @@ export const isSupabaseConfigured = Boolean(
 
 export const isTesterPasswordConfigured = Boolean(publicConfig.testerPassword);
 
-export const isRevenueCatConfigured = (platform: string) => {
-  if (platform === 'ios') return Boolean(publicConfig.revenueCatIosKey);
-  if (platform === 'android') return Boolean(publicConfig.revenueCatAndroidKey);
-  return false;
-};

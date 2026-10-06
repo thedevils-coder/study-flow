@@ -45,7 +45,7 @@ Development does not require Android Studio or a local Android SDK. Use Expo + E
 - `services/` — auth, tasks, focus, goals, AI, subscriptions, notifications
 - `lib/` — entitlements, streak, progress, validation
 - `supabase/migrations/` — PostgreSQL + RLS
-- `supabase/functions/` — `ai-generate`, `delete-account`, `revenuecat-webhook`, `admin-stats`
+- `supabase/functions/` — `ai-generate`, `delete-account`, `play-billing-sync`, `play-billing-rtdn`, `admin-stats`
 - `website/` — public site for getstudyflow.in
 - English only. There is no language switcher.
 
@@ -59,14 +59,13 @@ Do not paste secrets into the app, git, or chat. Configure them in the provider 
    - Enable Email and Google providers
    - Google redirect: the Supabase callback URL, not an arbitrary extra URL
    - App return scheme: `studyflow://`
-   - Edge Function secrets: `SUPABASE_SERVICE_ROLE_KEY`, `AI_API_KEY`, optional `AI_API_URL` / `AI_MODEL`, `REVENUECAT_WEBHOOK_SECRET`
-   - Deploy: `ai-generate`, `delete-account`, `admin-stats`, `revenuecat-webhook` (`--no-verify-jwt` for the webhook)
+   - Edge Function secrets: `SUPABASE_SERVICE_ROLE_KEY`, `AI_API_KEY`, optional `AI_API_URL` / `AI_MODEL`, `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` (Play Developer API service account JSON). Optional: `GOOGLE_PLAY_PACKAGE_NAME`, `GOOGLE_PLAY_RTDN_SECRET`
+   - Deploy: `ai-generate`, `delete-account`, `admin-stats`, `play-billing-sync` (JWT), `play-billing-rtdn` (`--no-verify-jwt`)
 
-2. **RevenueCat + Google Play**
-   - Public SDK keys only in Expo public env vars
-   - Products: `studyflow_basic_monthly`, `studyflow_basic_yearly`, `studyflow_pro_monthly`, `studyflow_pro_yearly`
-   - Entitlements: `basic`, `pro`
-   - Keep any existing Test Store products intact
+2. **Google Play Billing**
+   - No public SDK keys in the app. Play Billing is native (`expo-iap`).
+   - Product IDs (must match Play Console exactly; change only `lib/google-play-products.ts` if Console differs): `studyflow_basic_monthly`, `studyflow_basic_yearly`, `studyflow_pro_monthly`, `studyflow_pro_yearly`
+   - Entitlements stored after server verification: `basic`, `pro`
    - Production Android products require a Play Console app for `com.prabhjotkaur.studyflow`. Missing Play Console setup is not an app-code bug.
 
 3. **Google Play**

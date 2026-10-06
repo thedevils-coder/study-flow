@@ -1,22 +1,35 @@
 import { Platform } from 'react-native';
-import Purchases, { type CustomerInfo, type PurchasesPackage } from 'react-native-purchases';
 
-import { isRevenueCatConfigured, publicConfig } from '@/lib/config';
-import {
-  ENTITLEMENT_BASIC,
-  ENTITLEMENT_LEGACY_PREMIUM,
-  ENTITLEMENT_PRO,
-  PRODUCT_IDS,
-  normalizePlan,
-} from '@/lib/entitlements';
-import type { Plan, ProductId, SubscriptionStatus, UserSession } from '@/types';
-
-let configured = false;
+import { isSupabaseConfigured } from '@/lib/config';
+import { PLAY_PRODUCT_ID_LIST, playProductEntry, type PlayProductCatalogEntry } from '@/lib/google-play-products';
+import { getSupabase } from '@/lib/supabase';
+import { hydrateProfile } from '@/services/profile';
+import type { ProductId, UserSession } from '@/types';
 
 export type SubscriptionSnapshot = Pick<
   UserSession,
   'plan' | 'subscriptionStatus' | 'trialEndsAt' | 'productId' | 'willRenew' | 'entitlements'
 >;
+
+export type StoreSubscriptionProduct = PlayProductCatalogEntry & {
+  title: string;
+  description: string;
+  displayPrice: string;
+};
+
+export class PurchaseCancelledError extends Error {
+  constructor() {
+    super('Purchase cancelled.');
+    this.name = 'PurchaseCancelledError';
+  }
+}
+
+export class PurchasePendingError extends Error {
+  constructor() {
+    super('This purchase is pending. Access unlocks after Google Play completes payment.');
+    this.name = 'PurchasePendingError';
+  }
+}
 
 const emptySnapshot = (): SubscriptionSnapshot => ({
   plan: 'none',
@@ -24,100 +37,319 @@ const emptySnapshot = (): SubscriptionSnapshot => ({
   entitlements: [],
 });
 
-export function subscriptionFromCustomerInfo(info: CustomerInfo): SubscriptionSnapshot {
-  const active = info.entitlements.active;
-  const pro = active[ENTITLEMENT_PRO];
-  const basic = active[ENTITLEMENT_BASIC] ?? active[ENTITLEMENT_LEGACY_PREMIUM] ?? active[publicConfig.revenueCatEntitlementId];
-  const entitlement = pro ?? basic;
-
-  if (!entitlement) return emptySnapshot();
-
-  const plan: Plan = pro
-    ? 'pro'
-    : String(entitlement.periodType).toUpperCase() === 'TRIAL'
-      ? 'trial'
-      : 'basic';
-
-  let status: SubscriptionStatus = 'active';
-  if (!entitlement.willRenew) status = 'cancelled';
-
+export function snapshotFromSession(session: UserSession): SubscriptionSnapshot {
   return {
-    plan: normalizePlan(plan),
-    subscriptionStatus: status,
-    trialEndsAt: entitlement.expirationDate,
-    productId: entitlement.productIdentifier,
-    willRenew: entitlement.willRenew,
-    entitlements: Object.keys(active),
+    plan: session.plan,
+    subscriptionStatus: session.subscriptionStatus,
+    trialEndsAt: session.trialEndsAt,
+    productId: session.productId,
+    willRenew: session.willRenew,
+    entitlements: session.entitlements,
   };
 }
 
-export async function configurePurchases(appUserId: string) {
-  if (configured || Platform.OS === 'web' || !isRevenueCatConfigured(Platform.OS)) return;
-  const apiKey =
-    Platform.OS === 'ios' ? publicConfig.revenueCatIosKey : publicConfig.revenueCatAndroidKey;
-  if (!apiKey) return;
+let configured = false;
+let appUserId = '';
+
+function billingUnavailableMessage() {
+  if (Platform.OS === 'web') {
+    return 'Google Play subscriptions are available in the Android app, not on web.';
+  }
+  if (Platform.OS !== 'android') {
+    return 'Google Play subscriptions are available on Android.';
+  }
+  return 'Purchases need an EAS Android build with Google Play Billing. This screen will not fake a successful purchase.';
+}
+
+type ExpoIapModule = typeof import('expo-iap');
+type PlayPurchase = import('expo-iap').Purchase;
+type PlaySubscription = import('expo-iap').ProductSubscription;
+
+let iapModule: ExpoIapModule | null = null;
+
+async function loadIap(): Promise<ExpoIapModule | null> {
+  if (Platform.OS !== 'android') return null;
+  if (iapModule) return iapModule;
   try {
-    Purchases.configure({ apiKey, appUserID: appUserId });
+    iapModule = await import('expo-iap');
+    return iapModule;
+  } catch {
+    return null;
+  }
+}
+
+export async function configurePurchases(userId: string) {
+  appUserId = userId;
+  if (configured || Platform.OS !== 'android') return;
+  const iap = await loadIap();
+  if (!iap) return;
+  try {
+    await iap.initConnection();
     configured = true;
   } catch {
-    // Expo Go and other clients without the native Purchases module still boot.
     configured = false;
   }
 }
 
-export const isPurchasesReady = () => configured;
+export const isPurchasesReady = () => configured && Platform.OS === 'android';
 
-const productMatchers: Record<ProductId, string[]> = {
-  [PRODUCT_IDS.basicMonthly]: ['basic_monthly', 'basicmonthly', 'monthly'],
-  [PRODUCT_IDS.basicYearly]: ['basic_yearly', 'basicyearly', 'yearly', 'annual'],
-  [PRODUCT_IDS.proMonthly]: ['pro_monthly', 'promonthly'],
-  [PRODUCT_IDS.proYearly]: ['pro_yearly', 'proyearly'],
-};
-
-function findPackage(packages: PurchasesPackage[], productId: ProductId) {
-  const exact = packages.find(
-    (item) =>
-      item.product.identifier === productId ||
-      item.identifier === productId ||
-      item.product.identifier.includes(productId),
-  );
-  if (exact) return exact;
-
-  const needles = productMatchers[productId];
-  return packages.find((item) =>
-    needles.some((needle) =>
-      `${item.identifier} ${item.product.identifier}`.toLowerCase().includes(needle),
-    ),
-  );
+function purchaseMatches(purchase: PlayPurchase, productId: string) {
+  return purchase.productId === productId || Boolean(purchase.ids?.includes(productId));
 }
 
-export async function purchaseProduct(productId: ProductId) {
+function offerTokenForSubscription(product: PlaySubscription, sku: string): string | null {
+  const details =
+    'subscriptionOfferDetailsAndroid' in product ? product.subscriptionOfferDetailsAndroid : undefined;
+  const fromDetails = details?.find((item) => item.offerToken)?.offerToken ?? details?.[0]?.offerToken;
+  if (fromDetails) return fromDetails;
+
+  const offers = 'subscriptionOffers' in product ? product.subscriptionOffers : undefined;
+  const matching = offers?.find((item) => item.offerTokenAndroid && (!item.id || item.id === sku));
+  return matching?.offerTokenAndroid ?? offers?.find((item) => item.offerTokenAndroid)?.offerTokenAndroid ?? null;
+}
+
+function purchaseErrorCode(error: unknown): string {
+  if (!error || typeof error !== 'object') return '';
+  const code = (error as { code?: unknown }).code;
+  return typeof code === 'string' ? code.toLowerCase() : '';
+}
+
+function throwPurchaseFailure(error: unknown): never {
+  const code = purchaseErrorCode(error);
+  if (code.includes('user-cancelled') || code.includes('user_cancelled')) {
+    throw new PurchaseCancelledError();
+  }
+  if (code.includes('pending') || code.includes('deferred')) {
+    throw new PurchasePendingError();
+  }
+  if (error instanceof Error && error.message) throw error;
+  throw new Error('Purchase did not complete.');
+}
+
+function isAlreadyOwned(error: unknown) {
+  const code = purchaseErrorCode(error);
+  const message = error instanceof Error ? error.message.toLowerCase() : '';
+  return code.includes('already-owned') || code.includes('already_owned') || message.includes('already owned');
+}
+
+async function fetchSubscriptionCatalog(iap: ExpoIapModule): Promise<PlaySubscription[]> {
+  const products = await iap.fetchProducts({
+    skus: [...PLAY_PRODUCT_ID_LIST],
+    type: 'subs',
+  });
+  return (products ?? []).filter((item): item is PlaySubscription => item.type === 'subs');
+}
+
+function pickPurchase(result: PlayPurchase | PlayPurchase[] | null | undefined, productId: ProductId) {
+  const list = Array.isArray(result) ? result : result ? [result] : [];
+  return list.find((item) => purchaseMatches(item, productId)) ?? list[0] ?? null;
+}
+
+function waitForPurchase(iap: ExpoIapModule, productId: ProductId, timeoutMs = 120000) {
+  let settled = false;
+  let update: { remove: () => void } | null = null;
+  let error: { remove: () => void } | null = null;
+  let timer: ReturnType<typeof setTimeout> | null = null;
+
+  const finish = (fn: () => void) => {
+    if (settled) return;
+    settled = true;
+    if (timer) clearTimeout(timer);
+    update?.remove();
+    error?.remove();
+    fn();
+  };
+
+  const promise = new Promise<PlayPurchase>((resolve, reject) => {
+    timer = setTimeout(() => {
+      finish(() => reject(new Error('Timed out waiting for Google Play.')));
+    }, timeoutMs);
+    update = iap.purchaseUpdatedListener((purchase) => {
+      if (purchaseMatches(purchase, productId)) {
+        finish(() => resolve(purchase));
+      }
+    });
+    error = iap.purchaseErrorListener((err) => {
+      finish(() => reject(err));
+    });
+  });
+
+  return {
+    promise,
+    cancel() {
+      finish(() => undefined);
+    },
+  };
+}
+
+async function syncVerifiedPurchase(purchaseToken: string, productId?: string) {
+  if (!isSupabaseConfigured) {
+    throw new Error('Supabase is not configured. Purchases cannot be verified.');
+  }
+
+  const { data, error } = await getSupabase().functions.invoke('play-billing-sync', {
+    method: 'POST',
+    body: {
+      purchaseToken,
+      productId: productId ?? null,
+    },
+  });
+
+  if (error) {
+    const payload = data && typeof data === 'object' ? (data as { error?: string; message?: string }) : null;
+    const message = payload?.error || payload?.message || error.message;
+    if (/requested function was not found/i.test(error.message) || /404/.test(error.message)) {
+      throw new Error(
+        'The play-billing-sync Edge Function is not deployed. Deploy it and set GOOGLE_PLAY_SERVICE_ACCOUNT_JSON before granting paid access.',
+      );
+    }
+    throw new Error(message || 'Google Play purchase could not be verified.');
+  }
+
+  const payload = data && typeof data === 'object' ? (data as { error?: string; ok?: boolean }) : null;
+  if (payload?.error) throw new Error(payload.error);
+}
+
+async function finishIfNeeded(iap: ExpoIapModule, purchase: PlayPurchase) {
+  try {
+    await iap.finishTransaction({ purchase, isConsumable: false });
+  } catch {
+    // Backend acknowledge is authoritative; a second client acknowledge may already be done.
+  }
+}
+
+async function verifyAndFinish(iap: ExpoIapModule, purchase: PlayPurchase, session: UserSession) {
+  if (purchase.purchaseState === 'pending') {
+    throw new PurchasePendingError();
+  }
+  if ('isSuspendedAndroid' in purchase && purchase.isSuspendedAndroid) {
+    throw new Error('This Google Play subscription is suspended. Fix payment in Google Play, then restore.');
+  }
+  const token = purchase.purchaseToken;
+  if (!token) {
+    throw new Error('Google Play did not return a purchase token. Paid access was not granted.');
+  }
+
+  await syncVerifiedPurchase(token, purchase.productId);
+  await finishIfNeeded(iap, purchase);
+  return snapshotFromSession(await hydrateProfile(session));
+}
+
+export async function listStoreSubscriptionProducts(): Promise<StoreSubscriptionProduct[]> {
+  if (!configured) return [];
+  const iap = await loadIap();
+  if (!iap) return [];
+  try {
+    const products = await fetchSubscriptionCatalog(iap);
+    return products.flatMap((product) => {
+      const entry = playProductEntry(product.id);
+      if (!entry) return [];
+      return [
+        {
+          ...entry,
+          title: product.title || entry.label,
+          description: product.description || '',
+          displayPrice: product.displayPrice || '',
+        },
+      ];
+    });
+  } catch {
+    return [];
+  }
+}
+
+export async function purchaseProduct(productId: ProductId, session: UserSession) {
   if (!configured) {
+    throw new Error(billingUnavailableMessage());
+  }
+  const iap = await loadIap();
+  if (!iap) throw new Error(billingUnavailableMessage());
+
+  const products = await fetchSubscriptionCatalog(iap);
+  const product = products.find((item) => item.id === productId);
+  if (!product) {
     throw new Error(
-      'Purchases are not available in this build. Use an EAS development or preview build with RevenueCat configured.',
+      `This subscription product is not available in Google Play yet. Confirm product ID ${productId} in Play Console, then restore or try again.`,
     );
   }
 
-  const offerings = await Purchases.getOfferings();
-  const pkg = findPackage(offerings.current?.availablePackages ?? [], productId);
-  if (!pkg) {
+  const offerToken = offerTokenForSubscription(product, productId);
+  if (!offerToken) {
     throw new Error(
-      'This subscription product is not available yet. Configure Google Play products in RevenueCat, then restore or try again.',
+      `Google Play did not return an offer token for ${productId}. Create a base plan for this product in Play Console.`,
     );
   }
 
-  const result = await Purchases.purchasePackage(pkg);
-  return subscriptionFromCustomerInfo(result.customerInfo);
-}
-
-export async function restorePurchases() {
-  if (!configured) {
-    throw new Error('Purchases are not available in this build.');
+  const pending = waitForPurchase(iap, productId);
+  try {
+    const requested = await iap.requestPurchase({
+      type: 'subs',
+      request: {
+        google: {
+          skus: [productId],
+          obfuscatedAccountId: appUserId || session.id,
+          subscriptionOffers: [{ sku: productId, offerToken }],
+        },
+      },
+    });
+    const immediate = pickPurchase(requested, productId);
+    if (immediate) {
+      pending.cancel();
+      return verifyAndFinish(iap, immediate, session);
+    }
+    return verifyAndFinish(iap, await pending.promise, session);
+  } catch (error) {
+    pending.cancel();
+    if (error instanceof PurchaseCancelledError || error instanceof PurchasePendingError) throw error;
+    if (isAlreadyOwned(error)) {
+      return restorePurchases(session);
+    }
+    throwPurchaseFailure(error);
   }
-  return subscriptionFromCustomerInfo(await Purchases.restorePurchases());
 }
 
-export async function customerInfo() {
-  if (!configured) return emptySnapshot();
-  return subscriptionFromCustomerInfo(await Purchases.getCustomerInfo());
+export async function restorePurchases(session: UserSession) {
+  if (!configured) {
+    throw new Error(billingUnavailableMessage());
+  }
+  const iap = await loadIap();
+  if (!iap) throw new Error(billingUnavailableMessage());
+
+  const purchases = await iap.getAvailablePurchases({ includeSuspendedAndroid: true });
+  const playPurchases = purchases.filter((item) => item.purchaseToken && item.purchaseState !== 'pending');
+  if (!playPurchases.length) {
+    return snapshotFromSession(await hydrateProfile(session));
+  }
+
+  let lastError: unknown;
+  let synced = 0;
+  for (const purchase of playPurchases) {
+    if ('isSuspendedAndroid' in purchase && purchase.isSuspendedAndroid) continue;
+    const token = purchase.purchaseToken;
+    if (!token) continue;
+    try {
+      await syncVerifiedPurchase(token, purchase.productId);
+      await finishIfNeeded(iap, purchase);
+      synced += 1;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  if (!synced && lastError) throw lastError;
+  return snapshotFromSession(await hydrateProfile(session));
+}
+
+export async function refreshPlayPurchases(session: UserSession) {
+  if (!configured) return snapshotFromSession(await hydrateProfile(session));
+  try {
+    return await restorePurchases(session);
+  } catch {
+    return snapshotFromSession(await hydrateProfile(session));
+  }
+}
+
+export async function customerInfo(session?: UserSession | null) {
+  if (!session) return emptySnapshot();
+  return snapshotFromSession(await hydrateProfile(session));
 }

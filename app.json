@@ -28,7 +28,8 @@
         {
           "photosPermission": "Allow Study Flow to attach study photos for Leo."
         }
-      ]
+      ],
+      "expo-iap"
     ],
     "experiments": {
       "typedRoutes": true

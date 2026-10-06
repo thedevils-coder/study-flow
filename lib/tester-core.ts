@@ -59,7 +59,7 @@ export const TESTER_COPY = {
   button: 'Tester / Demo Account',
   home: 'This is the Study Flow tester profile with sample study data. Reset it anytime from Settings.',
   subscription:
-    'Tester / Demo trial access is for navigating the app. Google Play purchases are not faked and still require RevenueCat plus Play products.',
+    'Tester / Demo trial access is for navigating the app. Google Play purchases are not faked and still require an Android build with Play Billing plus Play products.',
   ai: 'Sample AI Meter history is loaded. Live Leo / AI replies still use the real Edge Function. If that service is not configured, you will see a labeled message instead of a crash.',
   missingPassword:
     'Set EXPO_PUBLIC_TESTER_PASSWORD for this preview/development build, then create the tester user in Supabase Auth (email confirmation off, or confirm once).',

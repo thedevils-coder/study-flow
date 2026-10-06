@@ -1,17 +1,13 @@
 import type { Plan, SubscriptionStatus, SubscriptionTier, UserSession } from '@/types';
 
-export const PRODUCT_IDS = {
-  basicMonthly: 'studyflow_basic_monthly',
-  basicYearly: 'studyflow_basic_yearly',
-  proMonthly: 'studyflow_pro_monthly',
-  proYearly: 'studyflow_pro_yearly',
-} as const;
+export { PRODUCT_IDS } from '@/lib/google-play-products';
 
 export const ENTITLEMENT_BASIC = 'basic';
 export const ENTITLEMENT_PRO = 'pro';
 export const ENTITLEMENT_LEGACY_PREMIUM = 'premium';
 
-const ACTIVE_STATUSES: SubscriptionStatus[] = ['active', 'cancelled', 'ending', 'pending'];
+/** Paid access continues after cancel until expiry. Pending is not paid access. */
+const ACTIVE_STATUSES: SubscriptionStatus[] = ['active', 'cancelled', 'ending'];
 
 export function normalizePlan(plan: string | null | undefined): Plan {
   if (plan === 'monthly' || plan === 'premium') return 'basic';
@@ -34,7 +30,7 @@ export function getTier(session: UserSession | null | undefined): SubscriptionTi
       item.includes('premium'),
   );
 
-  if (status === 'expired' || status === 'refunded' || status === 'none' || status === 'failed') {
+  if (status === 'expired' || status === 'refunded' || status === 'none' || status === 'failed' || status === 'pending') {
     if (plan === 'trial' && session.trialEndsAt) {
       const ends = new Date(session.trialEndsAt);
       if (!Number.isNaN(ends.valueOf()) && ends.getTime() > Date.now()) {
@@ -42,6 +38,13 @@ export function getTier(session: UserSession | null | undefined): SubscriptionTi
       }
     }
     return 'free';
+  }
+
+  if (session.trialEndsAt) {
+    const ends = new Date(session.trialEndsAt);
+    if (!Number.isNaN(ends.valueOf()) && ends.getTime() <= Date.now()) {
+      return 'free';
+    }
   }
 
   if (!ACTIVE_STATUSES.includes(status) && plan !== 'trial') {

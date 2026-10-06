@@ -12,5 +12,8 @@ verify_jwt = true
 [functions.ai-generate]
 verify_jwt = true
 
-[functions.revenuecat-webhook]
+[functions.play-billing-sync]
+verify_jwt = true
+
+[functions.play-billing-rtdn]
 verify_jwt = false

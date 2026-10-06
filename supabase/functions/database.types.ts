@@ -51,6 +51,7 @@ export type Database = {
           entitlement_id: string | null;
           entitlement_ids: string[];
           product_id: string | null;
+          purchase_token: string | null;
           state: string;
           expires_at: string | null;
           will_renew: boolean;
@@ -62,6 +63,7 @@ export type Database = {
           entitlement_id?: string | null;
           entitlement_ids?: string[];
           product_id?: string | null;
+          purchase_token?: string | null;
           state?: string;
           expires_at?: string | null;
           will_renew?: boolean;

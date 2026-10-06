@@ -1,6 +1,6 @@
 /**
  * PayPal is reserved for supported external / web flows.
- * Android in-app digital subscriptions must use Google Play Billing via RevenueCat.
+ * Android in-app digital subscriptions must use Google Play Billing.
  * Never put PayPal client secrets in the mobile app.
  */
 export const paypalPayments = {
