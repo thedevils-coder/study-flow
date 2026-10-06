@@ -200,7 +200,7 @@ async function syncVerifiedPurchase(purchaseToken: string, productId?: string) {
     const message = payload?.error || payload?.message || error.message;
     if (/requested function was not found/i.test(error.message) || /404/.test(error.message)) {
       throw new Error(
-        'The play-billing-sync Edge Function is not deployed. Deploy it and set GOOGLE_PLAY_SERVICE_ACCOUNT_JSON before granting paid access.',
+        'The play-billing-sync Edge Function is not deployed. Deploy it and configure the Play Developer API service-account secret on the Edge Function before granting paid access.',
       );
     }
     throw new Error(message || 'Google Play purchase could not be verified.');

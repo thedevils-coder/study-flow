@@ -111,7 +111,9 @@ function wrapPkcs1ToPkcs8(pkcs1: Uint8Array): Uint8Array {
 
 async function importPrivateKey(pem: string): Promise<CryptoKey> {
   const isPkcs8 = /BEGIN PRIVATE KEY/.test(pem);
-  const keyData = isPkcs8 ? pemToBytes(pem) : wrapPkcs1ToPkcs8(pemToBytes(pem));
+  const raw = isPkcs8 ? pemToBytes(pem) : wrapPkcs1ToPkcs8(pemToBytes(pem));
+  const keyData = new ArrayBuffer(raw.byteLength);
+  new Uint8Array(keyData).set(raw);
   return crypto.subtle.importKey(
     'pkcs8',
     keyData,
