@@ -9,6 +9,12 @@ import { TestStateNotice } from '@/components/TestStateNotice';
 import { displayPlanLabel, PRODUCT_IDS } from '@/lib/entitlements';
 import { userFacingError } from '@/lib/errors';
 import { PLAY_PRODUCT_CATALOG } from '@/lib/google-play-products';
+import {
+  localFreeEntitlementNote,
+  playBillingIntroCopy,
+  playTrialIntroCopy,
+  preferredPlayTrialProduct,
+} from '@/lib/google-play-trial';
 import { TESTER_COPY, isTesterBuildEnabled, isTesterSession } from '@/lib/tester';
 import { useAuth } from '@/providers/auth-provider';
 import { useTheme } from '@/providers/theme-provider';
@@ -52,6 +58,10 @@ export default function Subscription() {
     return map;
   }, [storeProducts]);
 
+  const trialProduct = useMemo(() => preferredPlayTrialProduct(storeProducts), [storeProducts]);
+  const trialIntro = playTrialIntroCopy(trialProduct?.trialLabel);
+  const freeEntitlementNote = localFreeEntitlementNote(tier);
+
   const priceLabel = (productId: ProductId, fallbackAmount: number) => {
     const fromStore = storeById.get(productId)?.displayPrice;
     return fromStore || money(fallbackAmount);
@@ -80,12 +90,16 @@ export default function Subscription() {
         <TestStateNotice title="Tester / Demo plan" message={TESTER_COPY.subscription} />
       ) : null}
       <Text style={{ color: colors.secondaryText, marginBottom: 16, lineHeight: 22 }}>
-        15-day free trial, then Basic or Pro. Android subscriptions use Google Play Billing. Store prices are the source of truth.
+        {playBillingIntroCopy()} Store prices are the source of truth when Google Play returns them.
+        {trialIntro ? ` ${trialIntro}` : ''}
       </Text>
       <Card>
         <Text style={[styles.label, { color: colors.accent }]}>CURRENT PLAN</Text>
         <Text style={[styles.price, { color: colors.text }]}>{displayPlanLabel(tier)}</Text>
         <Text style={{ color: colors.secondaryText, marginTop: 4 }}>Status: {session?.subscriptionStatus}</Text>
+        {freeEntitlementNote ? (
+          <Text style={{ color: colors.secondaryText, marginTop: 8, lineHeight: 20 }}>{freeEntitlementNote}</Text>
+        ) : null}
       </Card>
 
       <Card>
@@ -100,7 +114,20 @@ export default function Subscription() {
         <Text style={[styles.copy, { color: colors.secondaryText }]}>
           Tasks, planner, basic Focus, basic Progress, goals, streaks, limited AI Meter, basic Leo, basic Schedule Maker, reminders.
         </Text>
-        <Button label={`Choose ${PLAY_PRODUCT_CATALOG.studyflow_basic_monthly.label}`} onPress={() => void buy(PRODUCT_IDS.basicMonthly)} style={{ marginTop: 12 }} />
+        {storeById.get(PRODUCT_IDS.basicMonthly)?.trialLabel ? (
+          <Text style={[styles.copy, { color: colors.secondaryText }]}>
+            {storeById.get(PRODUCT_IDS.basicMonthly)?.trialLabel} on Basic monthly, from Google Play.
+          </Text>
+        ) : null}
+        {storeById.get(PRODUCT_IDS.basicYearly)?.trialLabel ? (
+          <Text style={[styles.copy, { color: colors.secondaryText }]}>
+            {storeById.get(PRODUCT_IDS.basicYearly)?.trialLabel} on Basic yearly, from Google Play.
+          </Text>
+        ) : null}
+        {trialProduct?.entitlement === 'basic' ? (
+          <Button label="Start Free Trial" onPress={() => void buy(trialProduct.productId)} style={{ marginTop: 12 }} />
+        ) : null}
+        <Button label={`Choose ${PLAY_PRODUCT_CATALOG.studyflow_basic_monthly.label}`} onPress={() => void buy(PRODUCT_IDS.basicMonthly)} style={{ marginTop: trialProduct?.entitlement === 'basic' ? 8 : 12 }} />
         <Button label={`Choose ${PLAY_PRODUCT_CATALOG.studyflow_basic_yearly.label}`} variant="secondary" onPress={() => void buy(PRODUCT_IDS.basicYearly)} style={{ marginTop: 8 }} />
       </Card>
 
@@ -117,8 +144,20 @@ export default function Subscription() {
         <Text style={[styles.copy, { color: colors.secondaryText }]}>
           Full AI Meter, Leo, Schedule Maker, advanced analytics, Study Shield where supported, and future smart study features.
         </Text>
-        <Button label="Start Free Trial" onPress={() => void buy(PRODUCT_IDS.proYearly)} style={{ marginTop: 12 }} />
-        <Button label={`Choose ${PLAY_PRODUCT_CATALOG.studyflow_pro_monthly.label}`} variant="secondary" onPress={() => void buy(PRODUCT_IDS.proMonthly)} style={{ marginTop: 8 }} />
+        {storeById.get(PRODUCT_IDS.proMonthly)?.trialLabel ? (
+          <Text style={[styles.copy, { color: colors.secondaryText }]}>
+            {storeById.get(PRODUCT_IDS.proMonthly)?.trialLabel} on Pro monthly, from Google Play.
+          </Text>
+        ) : null}
+        {storeById.get(PRODUCT_IDS.proYearly)?.trialLabel ? (
+          <Text style={[styles.copy, { color: colors.secondaryText }]}>
+            {storeById.get(PRODUCT_IDS.proYearly)?.trialLabel} on Pro yearly, from Google Play.
+          </Text>
+        ) : null}
+        {trialProduct?.entitlement === 'pro' ? (
+          <Button label="Start Free Trial" onPress={() => void buy(trialProduct.productId)} style={{ marginTop: 12 }} />
+        ) : null}
+        <Button label={`Choose ${PLAY_PRODUCT_CATALOG.studyflow_pro_monthly.label}`} variant="secondary" onPress={() => void buy(PRODUCT_IDS.proMonthly)} style={{ marginTop: trialProduct?.entitlement === 'pro' ? 8 : 12 }} />
         <Button label={`Choose ${PLAY_PRODUCT_CATALOG.studyflow_pro_yearly.label}`} variant="secondary" onPress={() => void buy(PRODUCT_IDS.proYearly)} style={{ marginTop: 8 }} />
       </Card>
 

@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 
 import { isSupabaseConfigured } from '@/lib/config';
 import { PLAY_PRODUCT_ID_LIST, playProductEntry, type PlayProductCatalogEntry } from '@/lib/google-play-products';
+import { trialFromPlayProduct } from '@/lib/google-play-trial';
 import { getSupabase } from '@/lib/supabase';
 import { hydrateProfile } from '@/services/profile';
 import type { ProductId, UserSession } from '@/types';
@@ -15,6 +16,8 @@ export type StoreSubscriptionProduct = PlayProductCatalogEntry & {
   title: string;
   description: string;
   displayPrice: string;
+  /** Set only from Google Play offer data. Null when Play did not return an eligible trial. */
+  trialLabel: string | null;
 };
 
 export class PurchaseCancelledError extends Error {
@@ -250,6 +253,7 @@ export async function listStoreSubscriptionProducts(): Promise<StoreSubscription
           title: product.title || entry.label,
           description: product.description || '',
           displayPrice: product.displayPrice || '',
+          trialLabel: trialFromPlayProduct(product)?.trialLabel ?? null,
         },
       ];
     });
