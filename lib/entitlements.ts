@@ -10,8 +10,11 @@ export const ENTITLEMENT_LEGACY_PREMIUM = 'premium';
 const ACTIVE_STATUSES: SubscriptionStatus[] = ['active', 'cancelled', 'ending'];
 
 export function normalizePlan(plan: string | null | undefined): Plan {
-  if (plan === 'monthly' || plan === 'premium') return 'basic';
-  if (plan === 'trial' || plan === 'basic' || plan === 'pro') return plan;
+  const value = String(plan ?? '').trim().toLowerCase();
+  // Legacy stored plans from before Basic/Pro product IDs. Keep these mapped so
+  // existing subscription rows do not lose access after the Play Billing migration.
+  if (value === 'monthly' || value === 'premium') return 'basic';
+  if (value === 'trial' || value === 'basic' || value === 'pro') return value;
   return 'none';
 }
 
