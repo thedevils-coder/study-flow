@@ -1,3 +1,4 @@
+import { planFromProductId } from '@/lib/google-play-products';
 import { getSupabase, isSupabaseConfigured } from '@/lib/supabase';
 import type { UserSession } from '@/types';
 
@@ -54,6 +55,9 @@ export async function hydrateProfile(session: UserSession): Promise<UserSession>
       entitlements.some((item) => item.includes('basic') || item.includes('premium'))
     ) {
       next.plan = 'basic';
+    } else {
+      const fromProduct = planFromProductId(subscriptionRow.product_id);
+      if (fromProduct) next.plan = fromProduct;
     }
   }
 

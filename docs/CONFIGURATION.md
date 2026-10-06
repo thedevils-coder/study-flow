@@ -16,9 +16,10 @@ These are account actions, not application-code gaps.
 | IMAGE_API_KEY | Edge Function secret (optional) | Image generation. Falls back to `AI_API_KEY` |
 | IMAGE_API_URL | Edge Function secret (optional) | Defaults to OpenAI images API |
 | IMAGE_MODEL | Edge Function secret (optional) | Default `dall-e-3` |
-| RevenueCat public SDK keys | EAS secrets / `.env` | Test Store can stay; production products are separate |
-| RevenueCat webhook secret | Edge Function secret | Deploy `revenuecat-webhook --no-verify-jwt` |
-| Google Play app + subscriptions | Play Console | Required before production IAP works |
+| Google Play service account JSON | Edge Function secret `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` | Play Developer API. Never `EXPO_PUBLIC_`. Required before paid access can be granted. |
+| Google Play package name | Edge Function secret `GOOGLE_PLAY_PACKAGE_NAME` (optional) | Defaults to `com.prabhjotkaur.studyflow` |
+| Google Play RTDN secret | Edge Function secret `GOOGLE_PLAY_RTDN_SECRET` (optional but recommended) | Bearer token for the `play-billing-rtdn` Pub/Sub push endpoint |
+| Google Play app + subscriptions | Play Console | Required before production IAP works. Product IDs live in `lib/google-play-products.ts` |
 | Resend | Supabase Auth email | Domain `auth.getstudyflow.in` |
 | PayPal / Razorpay | Not for Play digital IAP | Modular stubs only |
 | EAS Update | Production profile only | Preview/development use the embedded bundle. Publish with `eas update --channel production` when you want OTA. |

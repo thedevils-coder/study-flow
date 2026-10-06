@@ -13,7 +13,7 @@ const docs = {
   },
   terms: {
     title: 'Terms',
-    body: `Study Flow is a student productivity app. Subscriptions for the Android app are sold through Google Play and managed with RevenueCat. Prices shown in-app are display defaults; the store price is authoritative. Do not share passwords or payment credentials with anyone claiming to represent Study Flow.`,
+    body: `Study Flow is a student productivity app. Subscriptions for the Android app are sold through Google Play Billing. Prices shown in-app are display defaults; the store price is authoritative. Do not share passwords or payment credentials with anyone claiming to represent Study Flow.`,
   },
   subscription: {
     title: 'Subscription terms',

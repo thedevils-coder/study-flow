@@ -285,7 +285,7 @@ Deno.serve(async (request: Request) => {
     .map((value) => value.toLowerCase());
   const active =
     Boolean(subscription) &&
-    ['active', 'cancelled', 'ending', 'pending'].includes(String(subscription?.state)) &&
+    ['active', 'cancelled', 'ending'].includes(String(subscription?.state)) &&
     (!subscription?.expires_at || new Date(String(subscription.expires_at)).getTime() > Date.now());
   const isPro = active && entitlementIds.some((value) => value.includes('pro'));
   const trialActive = active && entitlementIds.some((value) => value.includes('trial'));

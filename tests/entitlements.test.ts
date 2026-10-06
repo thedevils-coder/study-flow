@@ -51,6 +51,25 @@ describe('subscription entitlements', () => {
     ).toBe('trial');
   });
 
+  it('does not grant paid access for pending purchases', () => {
+    expect(
+      getTier(session({ plan: 'pro', subscriptionStatus: 'pending', entitlements: ['pro'] })),
+    ).toBe('free');
+  });
+
+  it('does not grant paid access after expiry', () => {
+    expect(
+      getTier(
+        session({
+          plan: 'pro',
+          subscriptionStatus: 'active',
+          entitlements: ['pro'],
+          trialEndsAt: '2020-01-01T00:00:00.000Z',
+        }),
+      ),
+    ).toBe('free');
+  });
+
   it('gates AI kinds by plan', () => {
     expect(canUseKind('free', 'notes')).toBe(false);
     expect(canUseKind('basic', 'notes')).toBe(true);
