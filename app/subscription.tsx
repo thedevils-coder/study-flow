@@ -96,7 +96,7 @@ export default function Subscription() {
       <Card>
         <Text style={[styles.label, { color: colors.accent }]}>CURRENT PLAN</Text>
         <Text style={[styles.price, { color: colors.text }]}>{displayPlanLabel(tier)}</Text>
-        <Text style={{ color: colors.secondaryText, marginTop: 4 }}>Status: {session?.subscriptionStatus}</Text>
+        <Text style={{ color: colors.secondaryText, marginTop: 4 }}>Status: {session?.subscriptionStatus ?? 'none'}</Text>
         {freeEntitlementNote ? (
           <Text style={{ color: colors.secondaryText, marginTop: 8, lineHeight: 20 }}>{freeEntitlementNote}</Text>
         ) : null}
