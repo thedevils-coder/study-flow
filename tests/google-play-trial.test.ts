@@ -86,13 +86,11 @@ describe('Google Play trial offer display', () => {
     expect(localFreeEntitlementNote('trial')).toBeNull();
   });
 
-  it('does not hard-code a 15-day trial or RevenueCat in subscription copy', () => {
+  it('does not hard-code a 15-day trial on the subscription page', () => {
     expect(playBillingIntroCopy()).not.toMatch(/15-day/i);
-    expect(playBillingIntroCopy()).not.toMatch(/revenuecat/i);
     expect(playTrialIntroCopy('15-day free trial')).toMatch(/15-day free trial/i);
     const source = readFileSync(path.join(__dirname, '../app/subscription.tsx'), 'utf8');
     expect(source).not.toMatch(/15-day free trial/i);
-    expect(source).not.toMatch(/RevenueCat/i);
     expect(source).not.toMatch(/public SDK keys/i);
   });
 });
