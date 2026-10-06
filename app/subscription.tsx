@@ -16,6 +16,10 @@ import {
   preferredPlayTrialProduct,
 } from '@/lib/google-play-trial';
 import { TESTER_COPY, isTesterBuildEnabled, isTesterSession } from '@/lib/tester';
+import {
+  notifyWebSubscribeOnAndroid,
+  shouldAttemptStorePurchase,
+} from '@/lib/web-subscription';
 import { useAuth } from '@/providers/auth-provider';
 import { useTheme } from '@/providers/theme-provider';
 import {
@@ -68,6 +72,10 @@ export default function Subscription() {
   };
 
   const buy = async (productId: ProductId) => {
+    if (!shouldAttemptStorePurchase()) {
+      await notifyWebSubscribeOnAndroid();
+      return;
+    }
     try {
       await purchase(productId);
     } catch (error) {
