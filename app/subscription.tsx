@@ -135,8 +135,8 @@ export default function Subscription() {
         {trialProduct?.entitlement === 'basic' ? (
           <Button label="Start Free Trial" onPress={() => void buy(trialProduct.productId)} style={{ marginTop: 12 }} />
         ) : null}
-        <Button label={`Choose ${PLAY_PRODUCT_CATALOG.studyflow_basic_monthly.label}`} onPress={() => void buy(PRODUCT_IDS.basicMonthly)} style={{ marginTop: trialProduct?.entitlement === 'basic' ? 8 : 12 }} />
-        <Button label={`Choose ${PLAY_PRODUCT_CATALOG.studyflow_basic_yearly.label}`} variant="secondary" onPress={() => void buy(PRODUCT_IDS.basicYearly)} style={{ marginTop: 8 }} />
+        <Button label={`Choose ${PLAY_PRODUCT_CATALOG[PRODUCT_IDS.basicMonthly].label}`} onPress={() => void buy(PRODUCT_IDS.basicMonthly)} style={{ marginTop: trialProduct?.entitlement === 'basic' ? 8 : 12 }} />
+        <Button label={`Choose ${PLAY_PRODUCT_CATALOG[PRODUCT_IDS.basicYearly].label}`} variant="secondary" onPress={() => void buy(PRODUCT_IDS.basicYearly)} style={{ marginTop: 8 }} />
       </Card>
 
       <Card>
@@ -165,8 +165,8 @@ export default function Subscription() {
         {trialProduct?.entitlement === 'pro' ? (
           <Button label="Start Free Trial" onPress={() => void buy(trialProduct.productId)} style={{ marginTop: 12 }} />
         ) : null}
-        <Button label={`Choose ${PLAY_PRODUCT_CATALOG.studyflow_pro_monthly.label}`} variant="secondary" onPress={() => void buy(PRODUCT_IDS.proMonthly)} style={{ marginTop: trialProduct?.entitlement === 'pro' ? 8 : 12 }} />
-        <Button label={`Choose ${PLAY_PRODUCT_CATALOG.studyflow_pro_yearly.label}`} variant="secondary" onPress={() => void buy(PRODUCT_IDS.proYearly)} style={{ marginTop: 8 }} />
+        <Button label={`Choose ${PLAY_PRODUCT_CATALOG[PRODUCT_IDS.proMonthly].label}`} variant="secondary" onPress={() => void buy(PRODUCT_IDS.proMonthly)} style={{ marginTop: trialProduct?.entitlement === 'pro' ? 8 : 12 }} />
+        <Button label={`Choose ${PLAY_PRODUCT_CATALOG[PRODUCT_IDS.proYearly].label}`} variant="secondary" onPress={() => void buy(PRODUCT_IDS.proYearly)} style={{ marginTop: 8 }} />
       </Card>
 
       <Button

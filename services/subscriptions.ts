@@ -1,8 +1,18 @@
 import { Platform } from 'react-native';
 
 import { isSupabaseConfigured } from '@/lib/config';
-import { PLAY_PRODUCT_ID_LIST, playProductEntry, type PlayProductCatalogEntry } from '@/lib/google-play-products';
-import { trialFromPlayProduct } from '@/lib/google-play-trial';
+import {
+  PLAY_PRODUCT_ID_LIST,
+  PLAY_PRODUCT_QUERY_SKUS,
+  playProductEntry,
+  type PlayProductCatalogEntry,
+} from '@/lib/google-play-products';
+import {
+  displayPriceForBasePlan,
+  hasBasePlanOffers,
+  offerTokenForBasePlan,
+  trialInfoForBasePlan,
+} from '@/lib/google-play-offers';
 import { getSupabase } from '@/lib/supabase';
 import { hydrateProfile } from '@/services/profile';
 import type { ProductId, UserSession } from '@/types';
@@ -100,17 +110,6 @@ function purchaseMatches(purchase: PlayPurchase, productId: string) {
   return purchase.productId === productId || Boolean(purchase.ids?.includes(productId));
 }
 
-function offerTokenForSubscription(product: PlaySubscription, sku: string): string | null {
-  const details =
-    'subscriptionOfferDetailsAndroid' in product ? product.subscriptionOfferDetailsAndroid : undefined;
-  const fromDetails = details?.find((item) => item.offerToken)?.offerToken ?? details?.[0]?.offerToken;
-  if (fromDetails) return fromDetails;
-
-  const offers = 'subscriptionOffers' in product ? product.subscriptionOffers : undefined;
-  const matching = offers?.find((item) => item.offerTokenAndroid && (!item.id || item.id === sku));
-  return matching?.offerTokenAndroid ?? offers?.find((item) => item.offerTokenAndroid)?.offerTokenAndroid ?? null;
-}
-
 function purchaseErrorCode(error: unknown): string {
   if (!error || typeof error !== 'object') return '';
   const code = (error as { code?: unknown }).code;
@@ -137,18 +136,18 @@ function isAlreadyOwned(error: unknown) {
 
 async function fetchSubscriptionCatalog(iap: ExpoIapModule): Promise<PlaySubscription[]> {
   const products = await iap.fetchProducts({
-    skus: [...PLAY_PRODUCT_ID_LIST],
+    skus: [...PLAY_PRODUCT_QUERY_SKUS],
     type: 'subs',
   });
   return (products ?? []).filter((item): item is PlaySubscription => item.type === 'subs');
 }
 
-function pickPurchase(result: PlayPurchase | PlayPurchase[] | null | undefined, productId: ProductId) {
+function pickPurchase(result: PlayPurchase | PlayPurchase[] | null | undefined, playProductId: string) {
   const list = Array.isArray(result) ? result : result ? [result] : [];
-  return list.find((item) => purchaseMatches(item, productId)) ?? list[0] ?? null;
+  return list.find((item) => purchaseMatches(item, playProductId)) ?? list[0] ?? null;
 }
 
-function waitForPurchase(iap: ExpoIapModule, productId: ProductId, timeoutMs = 120000) {
+function waitForPurchase(iap: ExpoIapModule, playProductId: string, timeoutMs = 120000) {
   let settled = false;
   let update: { remove: () => void } | null = null;
   let error: { remove: () => void } | null = null;
@@ -168,7 +167,7 @@ function waitForPurchase(iap: ExpoIapModule, productId: ProductId, timeoutMs = 1
       finish(() => reject(new Error('Timed out waiting for Google Play.')));
     }, timeoutMs);
     update = iap.purchaseUpdatedListener((purchase) => {
-      if (purchaseMatches(purchase, productId)) {
+      if (purchaseMatches(purchase, playProductId)) {
         finish(() => resolve(purchase));
       }
     });
@@ -244,16 +243,18 @@ export async function listStoreSubscriptionProducts(): Promise<StoreSubscription
   if (!iap) return [];
   try {
     const products = await fetchSubscriptionCatalog(iap);
-    return products.flatMap((product) => {
-      const entry = playProductEntry(product.id);
+    return PLAY_PRODUCT_ID_LIST.flatMap((catalogId) => {
+      const entry = playProductEntry(catalogId);
       if (!entry) return [];
+      const product = products.find((item) => item.id === entry.playProductId);
+      if (!product || !hasBasePlanOffers(product, entry.basePlanId)) return [];
       return [
         {
           ...entry,
           title: product.title || entry.label,
           description: product.description || '',
-          displayPrice: product.displayPrice || '',
-          trialLabel: trialFromPlayProduct(product)?.trialLabel ?? null,
+          displayPrice: displayPriceForBasePlan(product, entry.basePlanId),
+          trialLabel: trialInfoForBasePlan(product, entry.basePlanId)?.trialLabel ?? null,
         },
       ];
     });
@@ -269,34 +270,39 @@ export async function purchaseProduct(productId: ProductId, session: UserSession
   const iap = await loadIap();
   if (!iap) throw new Error(billingUnavailableMessage());
 
+  const entry = playProductEntry(productId);
+  if (!entry) {
+    throw new Error('This subscription product is not a Study Flow Basic or Pro plan.');
+  }
+
   const products = await fetchSubscriptionCatalog(iap);
-  const product = products.find((item) => item.id === productId);
+  const product = products.find((item) => item.id === entry.playProductId);
   if (!product) {
     throw new Error(
-      `This subscription product is not available in Google Play yet. Confirm product ID ${productId} in Play Console, then restore or try again.`,
+      `This subscription product is not available in Google Play yet. Confirm product ID ${entry.playProductId} in Play Console, then restore or try again.`,
     );
   }
 
-  const offerToken = offerTokenForSubscription(product, productId);
+  const offerToken = offerTokenForBasePlan(product, entry.basePlanId);
   if (!offerToken) {
     throw new Error(
-      `Google Play did not return an offer token for ${productId}. Create a base plan for this product in Play Console.`,
+      `Google Play did not return an offer token for ${entry.playProductId} (${entry.basePlanId}). Confirm that base plan is active in Play Console.`,
     );
   }
 
-  const pending = waitForPurchase(iap, productId);
+  const pending = waitForPurchase(iap, entry.playProductId);
   try {
     const requested = await iap.requestPurchase({
       type: 'subs',
       request: {
         google: {
-          skus: [productId],
+          skus: [entry.playProductId],
           obfuscatedAccountId: appUserId || session.id,
-          subscriptionOffers: [{ sku: productId, offerToken }],
+          subscriptionOffers: [{ sku: entry.playProductId, offerToken }],
         },
       },
     });
-    const immediate = pickPurchase(requested, productId);
+    const immediate = pickPurchase(requested, entry.playProductId);
     if (immediate) {
       pending.cancel();
       return verifyAndFinish(iap, immediate, session);

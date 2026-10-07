@@ -21,10 +21,10 @@ export type TaskCategory = 'study' | 'break' | 'focus';
 export type SessionType = 'focus' | 'short_break' | 'long_break';
 
 export type ProductId =
-  | 'studyflow_basic_monthly'
-  | 'studyflow_basic_yearly'
-  | 'studyflow_pro_monthly'
-  | 'studyflow_pro_yearly';
+  | 'basic_monthly'
+  | 'basic_yearly'
+  | 'pro_monthly'
+  | 'pro_yearly';
 
 export type AiKind =
   | 'notes'

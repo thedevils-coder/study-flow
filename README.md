@@ -64,7 +64,7 @@ Do not paste secrets into the app, git, or chat. Configure them in the provider 
 
 2. **Google Play Billing**
    - No public SDK keys in the app. Play Billing is native (`expo-iap`).
-   - Product IDs (must match Play Console exactly; change only `lib/google-play-products.ts` if Console differs): `studyflow_basic_monthly`, `studyflow_basic_yearly`, `studyflow_pro_monthly`, `studyflow_pro_yearly`
+   - Product IDs (must match Play Console exactly; change only `lib/google-play-products.ts` if Console differs): `study_flow_basic` and `study_flow_pro`, each with base plans `monthly` and `yearly`
    - Entitlements stored after server verification: `basic`, `pro`
    - Production Android products require a Play Console app for `com.prabhjotkaur.studyflow`. Missing Play Console setup is not an app-code bug.
 

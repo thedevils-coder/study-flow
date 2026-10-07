@@ -8,9 +8,8 @@ import {
   type PlaySubscriptionPurchaseV2,
 } from './google-play-api.ts';
 import {
-  isPlayProductId,
+  catalogForVerifiedProduct,
   PLAY_BILLING_PROVIDER,
-  PLAY_PRODUCT_CATALOG,
   subscriptionStatusFromPlayState,
 } from './play-products.ts';
 
@@ -26,10 +25,14 @@ export type VerifiedPlaySubscription = {
   obfuscatedAccountId: string | null;
 };
 
+function lineItemCatalog(item: PlayLineItem) {
+  return catalogForVerifiedProduct(item.productId, item.offerDetails?.basePlanId);
+}
+
 function pickLineItem(purchase: PlaySubscriptionPurchaseV2): PlayLineItem | null {
-  const items = (purchase.lineItems ?? []).filter((item) => isPlayProductId(item.productId ?? ''));
+  const items = (purchase.lineItems ?? []).filter((item) => Boolean(lineItemCatalog(item)));
   if (!items.length) return null;
-  const pro = items.filter((item) => PLAY_PRODUCT_CATALOG[item.productId as keyof typeof PLAY_PRODUCT_CATALOG].entitlement === 'pro');
+  const pro = items.filter((item) => lineItemCatalog(item)?.entitlement === 'pro');
   const pool = pro.length ? pro : items;
   return [...pool].sort((a, b) => Date.parse(b.expiryTime || '0') - Date.parse(a.expiryTime || '0'))[0] ?? null;
 }
@@ -43,11 +46,10 @@ export async function verifyPlayPurchase(purchaseToken: string): Promise<{
   const purchase = await getSubscriptionPurchase(purchaseToken);
   const lineItem = pickLineItem(purchase);
   const productId = lineItem?.productId;
-  if (!lineItem || !isPlayProductId(productId)) {
+  const catalog = lineItem ? lineItemCatalog(lineItem) : null;
+  if (!lineItem || !productId || !catalog) {
     throw new Error('This Google Play product is not a Study Flow Basic or Pro subscription.');
   }
-
-  const catalog = PLAY_PRODUCT_CATALOG[productId];
   const state = subscriptionStatusFromPlayState(purchase.subscriptionState);
   const expiresAt = lineItem.expiryTime ? new Date(lineItem.expiryTime).toISOString() : null;
   const plan = state === 'pending' || state === 'expired' || state === 'failed' ? 'none' : catalog.plan;

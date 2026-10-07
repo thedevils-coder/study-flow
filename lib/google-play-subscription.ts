@@ -3,6 +3,7 @@ import type { Plan, SubscriptionStatus } from '@/types';
 import {
   entitlementFromProductId,
   isPlayProductId,
+  isPlaySubscriptionSku,
   planFromProductId,
 } from '@/lib/google-play-products';
 
@@ -52,5 +53,5 @@ export function planForVerifiedProduct(
 }
 
 export function isKnownPlayProduct(productId: string | null | undefined) {
-  return isPlayProductId(productId);
+  return isPlaySubscriptionSku(productId) || isPlayProductId(productId);
 }
