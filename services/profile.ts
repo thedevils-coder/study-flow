@@ -42,6 +42,7 @@ export async function hydrateProfile(session: UserSession): Promise<UserSession>
     next.subscriptionStatus = subscriptionRow.state ?? 'none';
     next.productId = subscriptionRow.product_id;
     next.willRenew = Boolean(subscriptionRow.will_renew);
+    next.expiresAt = subscriptionRow.expires_at;
     next.trialEndsAt = subscriptionRow.expires_at;
     next.entitlements = [
       ...(subscriptionRow.entitlement_ids ?? []),
@@ -50,14 +51,13 @@ export async function hydrateProfile(session: UserSession): Promise<UserSession>
 
     const entitlements = next.entitlements.map((item) => item.toLowerCase());
     if (entitlements.some((item) => item.includes('pro'))) next.plan = 'pro';
-    else if (entitlements.some((item) => item.includes('trial'))) next.plan = 'trial';
     else if (
       entitlements.some((item) => item.includes('basic') || item.includes('premium'))
     ) {
       next.plan = 'basic';
     } else {
       const fromProduct = planFromProductId(subscriptionRow.product_id);
-      if (fromProduct) next.plan = fromProduct;
+      next.plan = fromProduct ?? 'basic';
     }
   }
 

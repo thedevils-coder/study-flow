@@ -11,7 +11,6 @@ import {
   displayPriceForBasePlan,
   hasBasePlanOffers,
   offerTokenForBasePlan,
-  trialInfoForBasePlan,
 } from '@/lib/google-play-offers';
 import { getSupabase } from '@/lib/supabase';
 import { hydrateProfile } from '@/services/profile';
@@ -19,15 +18,13 @@ import type { ProductId, UserSession } from '@/types';
 
 export type SubscriptionSnapshot = Pick<
   UserSession,
-  'plan' | 'subscriptionStatus' | 'trialEndsAt' | 'productId' | 'willRenew' | 'entitlements'
+  'plan' | 'subscriptionStatus' | 'expiresAt' | 'trialEndsAt' | 'productId' | 'willRenew' | 'entitlements'
 >;
 
 export type StoreSubscriptionProduct = PlayProductCatalogEntry & {
   title: string;
   description: string;
   displayPrice: string;
-  /** Set only from Google Play offer data. Null when Play did not return an eligible trial. */
-  trialLabel: string | null;
 };
 
 export class PurchaseCancelledError extends Error {
@@ -54,7 +51,8 @@ export function snapshotFromSession(session: UserSession): SubscriptionSnapshot 
   return {
     plan: session.plan,
     subscriptionStatus: session.subscriptionStatus,
-    trialEndsAt: session.trialEndsAt,
+    expiresAt: session.expiresAt,
+    trialEndsAt: session.expiresAt ?? session.trialEndsAt,
     productId: session.productId,
     willRenew: session.willRenew,
     entitlements: session.entitlements,
@@ -254,7 +252,6 @@ export async function listStoreSubscriptionProducts(): Promise<StoreSubscription
           title: product.title || entry.label,
           description: product.description || '',
           displayPrice: displayPriceForBasePlan(product, entry.basePlanId),
-          trialLabel: trialInfoForBasePlan(product, entry.basePlanId)?.trialLabel ?? null,
         },
       ];
     });
@@ -272,7 +269,10 @@ export async function purchaseProduct(productId: ProductId, session: UserSession
 
   const entry = playProductEntry(productId);
   if (!entry) {
-    throw new Error('This subscription product is not a Study Flow Basic or Pro plan.');
+    throw new Error('This subscription product is not a Study Flow Pro plan.');
+  }
+  if (entry.entitlement !== 'pro') {
+    throw new Error('Basic is free. Subscribe to Pro through Google Play for the paid plan.');
   }
 
   const products = await fetchSubscriptionCatalog(iap);

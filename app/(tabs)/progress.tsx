@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 
+import { BannerAdSlot } from '@/components/BannerAdSlot';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { ErrorState } from '@/components/ErrorState';
@@ -39,6 +40,8 @@ export default function Progress() {
         <StatCard label="Focus sessions" value={String(progress.todaySessions)} />
         <StatCard label="Streak" value={`${progress.currentStreak}d`} />
       </View>
+
+      <BannerAdSlot placement="progress" />
 
       <Text style={[styles.kicker, { color: colors.secondaryText }]}>This week</Text>
       <Card style={{ backgroundColor: colors.accentSoft, borderColor: 'transparent' }}>
@@ -85,7 +88,7 @@ export default function Progress() {
         <Card>
           <Text style={[styles.heading, { color: colors.text }]}>Advanced analytics</Text>
           <Text style={{ color: colors.secondaryText, lineHeight: 20 }}>
-            Weekly comparison, average session length and deeper insights are included with Pro and the free trial.
+            Weekly comparison, average session length and deeper insights are included with Pro.
           </Text>
           <Button label="Upgrade to Pro" onPress={() => router.push('/subscription')} style={{ marginTop: 12 }} />
         </Card>

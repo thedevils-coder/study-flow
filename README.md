@@ -41,9 +41,9 @@ Development does not require Android Studio or a local Android SDK. Use Expo + E
 
 - `app/` — Expo Router screens (tabs: Home, Plan, Focus, Progress, Profile)
 - `components/` — shared UI
-- `providers/` — auth, study data, theme
-- `services/` — auth, tasks, focus, goals, AI, subscriptions, notifications
-- `lib/` — entitlements, streak, progress, validation
+- `providers/` — auth, study data, theme, ads
+- `services/` — auth, tasks, focus, goals, AI, subscriptions
+- `lib/` — entitlements, plans, ads, streak, progress, validation
 - `supabase/migrations/` — PostgreSQL + RLS
 - `supabase/functions/` — `ai-generate`, `delete-account`, `play-billing-sync`, `play-billing-rtdn`, `admin-stats`
 - `website/` — public site for getstudyflow.in
@@ -71,8 +71,13 @@ Do not paste secrets into the app, git, or chat. Configure them in the provider 
 3. **Google Play**
    - Package: `com.prabhjotkaur.studyflow`
    - Digital subscriptions must use Google Play Billing. PayPal and Razorpay are modular and disabled for in-app digital subscriptions.
+   - The in-app store sells Pro only (`study_flow_pro` monthly/yearly). Basic is free in the app.
 
-4. **Resend**
+4. **Google AdMob**
+   - Development and preview builds always use Google official test App IDs and ad unit IDs.
+   - Production EAS builds require `EXPO_PUBLIC_ADMOB_ANDROID_APP_ID`, `EXPO_PUBLIC_ADMOB_IOS_APP_ID`, and the matching banner/interstitial unit IDs. Ads need a native/EAS rebuild, not Expo Go.
+
+5. **Resend**
    - Auth email from `auth.getstudyflow.in`
    - API keys stay in Supabase/Resend, never in the app
 

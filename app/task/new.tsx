@@ -5,14 +5,17 @@ import { Input } from '@/components/Input';
 import { PlatformDateTimePicker } from '@/components/PlatformDateTimePicker';
 import { Screen } from '@/components/Screen';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { showInterstitialAd } from '@/lib/ads';
 import { formatDate, formatTime } from '@/lib/dates';
 import { alertDialog } from '@/lib/dialog';
 import { userFacingError } from '@/lib/errors';
 import { goBackOrHome } from '@/lib/navigation';
 import { webDebug } from '@/lib/web-debug';
+import { useAuth } from '@/providers/auth-provider';
 import { useStudy } from '@/providers/study-provider';
 
 export default function NewTask() {
+  const { session, tier } = useAuth();
   const { createTask } = useStudy();
   const [title, setTitle] = useState('');
   const [date, setDate] = useState(new Date());
@@ -22,7 +25,8 @@ export default function NewTask() {
     webDebug('Add Task pressed');
     setSaving(true);
     try {
-      await createTask(title, date);
+      const saved = await createTask(title, date);
+      void showInterstitialAd({ session, tier, reason: 'task_save', token: saved.id });
       goBackOrHome();
     } catch (error) {
       await alertDialog('Task', userFacingError(error, 'Unable to save the task.'));

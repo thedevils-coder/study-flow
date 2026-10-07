@@ -150,11 +150,11 @@ describe('sources and usage', () => {
   });
 
   it('keeps subscription gating', () => {
-    expect(canUseKind('free', 'leo')).toBe(false);
     expect(canUseKind('basic', 'notes')).toBe(true);
     expect(canUseKind('basic', 'leo')).toBe(false);
     expect(canUseKind('pro', 'leo')).toBe(true);
-    expect(dailyAiLimit('basic')).toBe(10);
+    expect(dailyAiLimit('basic')).toBe(20);
+    expect(dailyAiLimit('pro')).toBe(80);
   });
 
   it('surfaces structured Edge Function errors including 404 and provider failure', async () => {

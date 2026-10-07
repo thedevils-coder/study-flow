@@ -8,13 +8,8 @@ import { ScreenHeader } from '@/components/ScreenHeader';
 import { TestStateNotice } from '@/components/TestStateNotice';
 import { displayPlanLabel, PRODUCT_IDS } from '@/lib/entitlements';
 import { userFacingError } from '@/lib/errors';
-import { PLAY_PRODUCT_CATALOG } from '@/lib/google-play-products';
-import {
-  localFreeEntitlementNote,
-  playBillingIntroCopy,
-  playTrialIntroCopy,
-  preferredPlayTrialProduct,
-} from '@/lib/google-play-trial';
+import { PLAY_PRODUCT_CATALOG, playBillingIntroCopy } from '@/lib/google-play-products';
+import { PLAN_CONFIG } from '@/lib/plans';
 import { TESTER_COPY, isTesterBuildEnabled, isTesterSession } from '@/lib/tester';
 import {
   notifyWebSubscribeOnAndroid,
@@ -22,14 +17,7 @@ import {
 } from '@/lib/web-subscription';
 import { useAuth } from '@/providers/auth-provider';
 import { useTheme } from '@/providers/theme-provider';
-import {
-  basicAnnualDiscount,
-  basicAnnualSaving,
-  defaultPricing,
-  money,
-  proAnnualDiscount,
-  proAnnualSaving,
-} from '@/services/pricing';
+import { defaultPricing, money, proAnnualDiscount, proAnnualSaving } from '@/services/pricing';
 import { paypalPayments } from '@/services/payments/paypal';
 import { razorpayPayments } from '@/services/payments/razorpay';
 import {
@@ -61,10 +49,6 @@ export default function Subscription() {
     for (const product of storeProducts) map.set(product.productId, product);
     return map;
   }, [storeProducts]);
-
-  const trialProduct = useMemo(() => preferredPlayTrialProduct(storeProducts), [storeProducts]);
-  const trialIntro = playTrialIntroCopy(trialProduct?.trialLabel);
-  const freeEntitlementNote = localFreeEntitlementNote(tier);
 
   const priceLabel = (productId: ProductId, fallbackAmount: number) => {
     const fromStore = storeById.get(productId)?.displayPrice;
@@ -99,44 +83,20 @@ export default function Subscription() {
       ) : null}
       <Text style={{ color: colors.secondaryText, marginBottom: 16, lineHeight: 22 }}>
         {playBillingIntroCopy()} Store prices are the source of truth when Google Play returns them.
-        {trialIntro ? ` ${trialIntro}` : ''}
       </Text>
       <Card>
         <Text style={[styles.label, { color: colors.accent }]}>CURRENT PLAN</Text>
         <Text style={[styles.price, { color: colors.text }]}>{displayPlanLabel(tier)}</Text>
         <Text style={{ color: colors.secondaryText, marginTop: 4 }}>Status: {session?.subscriptionStatus ?? 'none'}</Text>
-        {freeEntitlementNote ? (
-          <Text style={{ color: colors.secondaryText, marginTop: 8, lineHeight: 20 }}>{freeEntitlementNote}</Text>
-        ) : null}
       </Card>
 
       <Card>
         <Text style={[styles.label, { color: colors.accent }]}>BASIC</Text>
-        <Text style={[styles.price, { color: colors.text }]}>
-          {priceLabel(PRODUCT_IDS.basicMonthly, defaultPricing.basicMonthly)}
-          <Text style={[styles.unit, { color: colors.mutedText }]}>/month</Text>
-        </Text>
-        <Text style={{ color: colors.secondaryText }}>
-          Yearly {priceLabel(PRODUCT_IDS.basicYearly, defaultPricing.basicYearly)} · save {money(basicAnnualSaving)} (~{basicAnnualDiscount}%)
-        </Text>
+        <Text style={[styles.price, { color: colors.text }]}>FREE</Text>
+        <Text style={{ color: colors.secondaryText }}>{money(PLAN_CONFIG.basic.price)} forever. Ads included.</Text>
         <Text style={[styles.copy, { color: colors.secondaryText }]}>
-          Tasks, planner, basic Focus, basic Progress, goals, streaks, limited AI Meter, basic Leo, basic Schedule Maker, reminders.
+          {PLAN_CONFIG.basic.aiGenerationsPerDay} AI generations/day, ads, tasks, planner, basic Focus, basic Progress, goals, streaks, and basic AI Meter.
         </Text>
-        {storeById.get(PRODUCT_IDS.basicMonthly)?.trialLabel ? (
-          <Text style={[styles.copy, { color: colors.secondaryText }]}>
-            {storeById.get(PRODUCT_IDS.basicMonthly)?.trialLabel} on Basic monthly, from Google Play.
-          </Text>
-        ) : null}
-        {storeById.get(PRODUCT_IDS.basicYearly)?.trialLabel ? (
-          <Text style={[styles.copy, { color: colors.secondaryText }]}>
-            {storeById.get(PRODUCT_IDS.basicYearly)?.trialLabel} on Basic yearly, from Google Play.
-          </Text>
-        ) : null}
-        {trialProduct?.entitlement === 'basic' ? (
-          <Button label="Start Free Trial" onPress={() => void buy(trialProduct.productId)} style={{ marginTop: 12 }} />
-        ) : null}
-        <Button label={`Choose ${PLAY_PRODUCT_CATALOG[PRODUCT_IDS.basicMonthly].label}`} onPress={() => void buy(PRODUCT_IDS.basicMonthly)} style={{ marginTop: trialProduct?.entitlement === 'basic' ? 8 : 12 }} />
-        <Button label={`Choose ${PLAY_PRODUCT_CATALOG[PRODUCT_IDS.basicYearly].label}`} variant="secondary" onPress={() => void buy(PRODUCT_IDS.basicYearly)} style={{ marginTop: 8 }} />
       </Card>
 
       <Card>
@@ -150,22 +110,9 @@ export default function Subscription() {
           Yearly {priceLabel(PRODUCT_IDS.proYearly, defaultPricing.proYearly)} · save {money(proAnnualSaving)} (~{proAnnualDiscount}%)
         </Text>
         <Text style={[styles.copy, { color: colors.secondaryText }]}>
-          Full AI Meter, Leo, Schedule Maker, advanced analytics, Study Shield where supported, and future smart study features.
+          {PLAN_CONFIG.pro.aiGenerationsPerDay} AI generations/day, no ads, full AI Meter, Leo, Schedule Maker, advanced analytics, Study Shield where supported, and future smart study features.
         </Text>
-        {storeById.get(PRODUCT_IDS.proMonthly)?.trialLabel ? (
-          <Text style={[styles.copy, { color: colors.secondaryText }]}>
-            {storeById.get(PRODUCT_IDS.proMonthly)?.trialLabel} on Pro monthly, from Google Play.
-          </Text>
-        ) : null}
-        {storeById.get(PRODUCT_IDS.proYearly)?.trialLabel ? (
-          <Text style={[styles.copy, { color: colors.secondaryText }]}>
-            {storeById.get(PRODUCT_IDS.proYearly)?.trialLabel} on Pro yearly, from Google Play.
-          </Text>
-        ) : null}
-        {trialProduct?.entitlement === 'pro' ? (
-          <Button label="Start Free Trial" onPress={() => void buy(trialProduct.productId)} style={{ marginTop: 12 }} />
-        ) : null}
-        <Button label={`Choose ${PLAY_PRODUCT_CATALOG[PRODUCT_IDS.proMonthly].label}`} variant="secondary" onPress={() => void buy(PRODUCT_IDS.proMonthly)} style={{ marginTop: trialProduct?.entitlement === 'pro' ? 8 : 12 }} />
+        <Button label={`Choose ${PLAY_PRODUCT_CATALOG[PRODUCT_IDS.proMonthly].label}`} onPress={() => void buy(PRODUCT_IDS.proMonthly)} style={{ marginTop: 12 }} />
         <Button label={`Choose ${PLAY_PRODUCT_CATALOG[PRODUCT_IDS.proYearly].label}`} variant="secondary" onPress={() => void buy(PRODUCT_IDS.proYearly)} style={{ marginTop: 8 }} />
       </Card>
 

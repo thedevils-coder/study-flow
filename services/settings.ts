@@ -1,28 +1,13 @@
-import { Platform } from 'react-native';
-import * as Notifications from 'expo-notifications';
-
 import { getSupabase, isSupabaseConfigured } from '@/lib/supabase';
 import type { ThemePreference, UserSettings } from '@/types';
-
-if (Platform.OS !== 'web') {
-  Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldShowAlert: true,
-      shouldPlaySound: false,
-      shouldSetBadge: false,
-      shouldShowBanner: true,
-      shouldShowList: true,
-    }),
-  });
-}
 
 const defaults = (userId: string): UserSettings => ({
   userId,
   theme: 'system',
-  notificationsEnabled: true,
-  studyReminders: true,
-  taskReminders: true,
-  goalReminders: true,
+  notificationsEnabled: false,
+  studyReminders: false,
+  taskReminders: false,
+  goalReminders: false,
   focusMinutes: 25,
   updatedAt: new Date().toISOString(),
 });
@@ -41,10 +26,10 @@ type SettingsRow = {
 const mapSettings = (row: SettingsRow): UserSettings => ({
   userId: row.user_id,
   theme: (row.theme as ThemePreference) || 'system',
-  notificationsEnabled: row.notifications_enabled ?? true,
-  studyReminders: row.study_reminders ?? true,
-  taskReminders: Boolean(row.reminders?.taskReminders ?? true),
-  goalReminders: row.goal_reminders ?? true,
+  notificationsEnabled: false,
+  studyReminders: false,
+  taskReminders: false,
+  goalReminders: false,
   focusMinutes: row.focus_minutes ?? 25,
   updatedAt: row.updated_at,
 });
@@ -67,56 +52,27 @@ export const settingsService = {
   async save(userId: string, patch: Partial<UserSettings>) {
     if (!isSupabaseConfigured) throw new Error('Supabase is not configured.');
     const current = await this.load(userId);
-    const next: UserSettings = { ...current, ...patch, userId, updatedAt: new Date().toISOString() };
+    const next: UserSettings = {
+      ...current,
+      ...patch,
+      userId,
+      notificationsEnabled: false,
+      studyReminders: false,
+      taskReminders: false,
+      goalReminders: false,
+      updatedAt: new Date().toISOString(),
+    };
     const { error } = await getSupabase().from('user_settings').upsert({
       user_id: userId,
       theme: next.theme,
-      notifications_enabled: next.notificationsEnabled,
-      study_reminders: next.studyReminders,
-      goal_reminders: next.goalReminders,
+      notifications_enabled: false,
+      study_reminders: false,
+      goal_reminders: false,
       focus_minutes: next.focusMinutes,
-      reminders: { taskReminders: next.taskReminders },
+      reminders: { taskReminders: false },
       updated_at: next.updatedAt,
     });
     if (error) throw error;
     return next;
-  },
-};
-
-export const notificationService = {
-  async requestPermission() {
-    if (Platform.OS === 'web') {
-      return { granted: false, message: 'Reminders are available in the Android app.' };
-    }
-    const current = await Notifications.getPermissionsAsync();
-    if (current.granted) return { granted: true, message: 'Reminders are on.' };
-    const asked = await Notifications.requestPermissionsAsync();
-    if (asked.granted) return { granted: true, message: 'Reminders are on.' };
-    return {
-      granted: false,
-      message:
-        'Notification permission is off. Enable it in system settings to receive study and task reminders.',
-    };
-  },
-
-  async scheduleTaskReminder(taskId: string, title: string, when: Date) {
-    if (Platform.OS === 'web' || when.getTime() <= Date.now()) return;
-    await Notifications.cancelScheduledNotificationAsync(`task:${taskId}`).catch(() => undefined);
-    await Notifications.scheduleNotificationAsync({
-      identifier: `task:${taskId}`,
-      content: {
-        title: 'Upcoming task',
-        body: title,
-      },
-      trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.DATE,
-        date: when,
-      },
-    });
-  },
-
-  async cancelTaskReminder(taskId: string) {
-    if (Platform.OS === 'web') return;
-    await Notifications.cancelScheduledNotificationAsync(`task:${taskId}`).catch(() => undefined);
   },
 };

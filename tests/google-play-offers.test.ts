@@ -4,7 +4,6 @@ import {
   displayPriceForBasePlan,
   hasBasePlanOffers,
   offerTokenForBasePlan,
-  trialInfoForBasePlan,
 } from '@/lib/google-play-offers';
 import type { PlaySubscriptionLike } from '@/lib/google-play-offers';
 
@@ -117,25 +116,17 @@ describe('Google Play offer-token selection', () => {
     expect(displayPriceForBasePlan(product, 'yearly')).toBe('₹1,000.00');
     expect(hasBasePlanOffers(product, 'monthly')).toBe(true);
     expect(hasBasePlanOffers(product, 'yearly')).toBe(true);
-    expect(trialInfoForBasePlan(product, 'monthly')).toBeNull();
   });
 
-  it('uses an eligible free-trial offer token when Play actually returned one', () => {
+  it('skips a free-trial offer token even when Play returned one', () => {
     const product = proWithEligibleTrial();
-    expect(offerTokenForBasePlan(product, 'yearly')).toBe('token-pro-yearly-trial');
+    expect(offerTokenForBasePlan(product, 'yearly')).toBe('token-pro-yearly');
     expect(offerTokenForBasePlan(product, 'monthly')).toBe('token-pro-monthly');
-    expect(trialInfoForBasePlan(product, 'yearly')).toEqual({
-      trialLabel: '15-day free trial',
-      billingPeriod: 'P15D',
-    });
-    expect(trialInfoForBasePlan(product, 'monthly')).toBeNull();
   });
 
-  it('does not invent a trial when Play returned only paid base-plan offers', () => {
-    expect(trialInfoForBasePlan(basicProduct(), 'yearly')).toBeNull();
-    expect(trialInfoForBasePlan({ id: 'study_flow_pro', subscriptionOfferDetailsAndroid: [] }, 'yearly')).toBeNull();
+  it('still uses a paid offer when the offer id is only named freetrial', () => {
     expect(
-      trialInfoForBasePlan(
+      offerTokenForBasePlan(
         {
           id: 'study_flow_pro',
           subscriptionOfferDetailsAndroid: [
@@ -151,7 +142,7 @@ describe('Google Play offer-token selection', () => {
         },
         'yearly',
       ),
-    ).toBeNull();
+    ).toBe('token-draft-name-only');
   });
 
   it('rejects unknown products and unknown base plans', () => {

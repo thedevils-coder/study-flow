@@ -149,3 +149,7 @@ export function entitlementFromProductId(productId: string | null | undefined): 
 export function planFromProductId(productId: string | null | undefined): Extract<Plan, 'basic' | 'pro'> | null {
   return mappingFromStoredProductId(productId)?.plan ?? null;
 }
+
+export function playBillingIntroCopy() {
+  return 'Android subscriptions use Google Play Billing. Google Play is the source of truth for prices.';
+}

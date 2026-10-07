@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { BannerAdSlot } from '@/components/BannerAdSlot';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { EmptyState } from '@/components/EmptyState';
@@ -67,6 +68,8 @@ export default function Home() {
         />
         <StatCard label="Plan" value={displayPlanLabel(tier)} />
       </View>
+
+      <BannerAdSlot placement="dashboard" />
 
       <Text style={[styles.section, { color: colors.text }]}>Quick actions</Text>
       <View style={styles.actions}>

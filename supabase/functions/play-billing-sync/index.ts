@@ -71,7 +71,7 @@ Deno.serve(async (req: Request) => {
       subscription: {
         plan: verified.mapped.plan,
         subscriptionStatus: verified.mapped.state,
-        trialEndsAt: verified.mapped.expiresAt,
+        expiresAt: verified.mapped.expiresAt,
         productId: verified.mapped.productId,
         willRenew: verified.mapped.willRenew,
         entitlements: verified.mapped.entitlements,

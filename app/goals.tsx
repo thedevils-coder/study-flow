@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
+import { BannerAdSlot } from '@/components/BannerAdSlot';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { EmptyState } from '@/components/EmptyState';
@@ -9,14 +10,17 @@ import { Input } from '@/components/Input';
 import { PlatformDateTimePicker } from '@/components/PlatformDateTimePicker';
 import { Screen } from '@/components/Screen';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { showInterstitialAd } from '@/lib/ads';
 import { formatShortDate } from '@/lib/dates';
 import { alertDialog, confirmDialog } from '@/lib/dialog';
 import { userFacingError } from '@/lib/errors';
 import { webDebug } from '@/lib/web-debug';
+import { useAuth } from '@/providers/auth-provider';
 import { useStudy } from '@/providers/study-provider';
 import { useTheme } from '@/providers/theme-provider';
 
 export default function Goals() {
+  const { session, tier } = useAuth();
   const { goals, createGoal, updateGoal, deleteGoal } = useStudy();
   const { colors } = useTheme();
   const [title, setTitle] = useState('');
@@ -29,10 +33,11 @@ export default function Goals() {
     webDebug('Add Goal pressed');
     setSaving(true);
     try {
-      await createGoal(title, target, unit, due);
+      const saved = await createGoal(title, target, unit, due);
       setTitle('');
       setTarget('');
       setDue(null);
+      void showInterstitialAd({ session, tier, reason: 'goal_save', token: saved.id });
     } catch (error) {
       await alertDialog('Goal', userFacingError(error, 'Unable to save the goal.'));
     } finally {
@@ -58,6 +63,7 @@ export default function Goals() {
         />
         <Button label="Add goal" onPress={() => void save()} loading={saving} />
       </Card>
+      <BannerAdSlot placement="goals" />
 
       {goals.length === 0 ? (
         <EmptyState
