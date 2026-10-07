@@ -7,6 +7,7 @@ import {
   hasBasicAccess,
   hasProAccess,
   normalizePlan,
+  shouldShowAds,
 } from '@/lib/entitlements';
 import type { UserSession } from '@/types';
 
@@ -22,14 +23,19 @@ const session = (overrides: Partial<UserSession> = {}): UserSession => ({
 });
 
 describe('subscription entitlements', () => {
-  it('maps legacy monthly to basic', () => {
+  it('maps legacy monthly and trial rows to basic', () => {
     expect(normalizePlan('monthly')).toBe('basic');
+    expect(normalizePlan('trial')).toBe('basic');
+    expect(normalizePlan('none')).toBe('basic');
+    expect(normalizePlan('premium')).toBe('basic');
   });
 
-  it('treats an active basic entitlement as basic', () => {
+  it('treats signed-in users without Pro as Basic', () => {
+    expect(getTier(session())).toBe('basic');
     expect(
       getTier(session({ plan: 'basic', subscriptionStatus: 'active', entitlements: ['basic'] })),
     ).toBe('basic');
+    expect(getTier(null)).toBe('basic');
   });
 
   it('treats pro entitlement as pro', () => {
@@ -38,48 +44,53 @@ describe('subscription entitlements', () => {
     ).toBe('pro');
   });
 
-  it('uses provider trial state rather than a local boolean', () => {
+  it('does not keep trial as a plan', () => {
     expect(
       getTier(
         session({
-          plan: 'trial',
+          plan: 'trial' as unknown as UserSession['plan'],
           subscriptionStatus: 'active',
-          trialEndsAt: '2099-01-01T00:00:00.000Z',
+          expiresAt: '2099-01-01T00:00:00.000Z',
           entitlements: ['basic'],
         }),
       ),
-    ).toBe('trial');
+    ).toBe('basic');
   });
 
-  it('does not grant paid access for pending purchases', () => {
+  it('does not grant Pro for pending purchases', () => {
     expect(
       getTier(session({ plan: 'pro', subscriptionStatus: 'pending', entitlements: ['pro'] })),
-    ).toBe('free');
+    ).toBe('basic');
   });
 
-  it('does not grant paid access after expiry', () => {
+  it('does not grant Pro after expiry', () => {
     expect(
       getTier(
         session({
           plan: 'pro',
           subscriptionStatus: 'active',
           entitlements: ['pro'],
-          trialEndsAt: '2020-01-01T00:00:00.000Z',
+          expiresAt: '2020-01-01T00:00:00.000Z',
         }),
       ),
-    ).toBe('free');
+    ).toBe('basic');
   });
 
   it('gates AI kinds by plan', () => {
-    expect(canUseKind('free', 'notes')).toBe(false);
     expect(canUseKind('basic', 'notes')).toBe(true);
     expect(canUseKind('basic', 'leo')).toBe(false);
-    expect(canUseKind('trial', 'leo')).toBe(true);
     expect(canUseKind('pro', 'schedule')).toBe(true);
     expect(hasBasicAccess('basic')).toBe(true);
     expect(hasProAccess('basic')).toBe(false);
     expect(dailyAiLimit('pro')).toBe(80);
-    expect(dailyAiLimit('basic')).toBe(10);
-    expect(dailyAiLimit('free')).toBe(0);
+    expect(dailyAiLimit('basic')).toBe(20);
+  });
+
+  it('shows ads only for authenticated Basic users', () => {
+    expect(shouldShowAds(null, 'basic')).toBe(false);
+    expect(shouldShowAds(session(), 'basic')).toBe(true);
+    expect(shouldShowAds(session({ plan: 'pro', subscriptionStatus: 'active', entitlements: ['pro'] }), 'pro')).toBe(
+      false,
+    );
   });
 });

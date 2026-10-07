@@ -1,5 +1,5 @@
 import { isPlayBasePlanId, type PlayBasePlanId } from '@/lib/google-play-products';
-import { trialFromOffer, trialFromPricingPhases } from '@/lib/google-play-trial';
+import { isTrialOffer, isTrialPricingPhases } from '@/lib/google-play-trial';
 
 type PricingPhaseLike = {
   priceAmountMicros?: string | number | null;
@@ -51,17 +51,16 @@ function offersForBasePlan(product: PlaySubscriptionLike, basePlanId: PlayBasePl
 }
 
 function detailsAreTrial(details: PlayOfferDetailsLike) {
-  return Boolean(trialFromPricingPhases(details.pricingPhases?.pricingPhaseList));
+  return isTrialPricingPhases(details.pricingPhases?.pricingPhaseList);
 }
 
 function offerIsTrial(offer: PlaySubscriptionOfferLike) {
-  return Boolean(trialFromOffer(offer));
+  return isTrialOffer(offer);
 }
 
 /**
  * Pick the Play offer token for a selected base plan from expo-iap product data.
- * Prefers an eligible free-trial offer when Play actually returned one, then the
- * base-plan offer (no offerId), then any remaining offer for that base plan.
+ * Prefers the paid base-plan offer (no offerId) and skips free-trial offers.
  */
 export function offerTokenForBasePlan(
   product: PlaySubscriptionLike | null | undefined,
@@ -70,18 +69,16 @@ export function offerTokenForBasePlan(
   if (!product || !isPlayBasePlanId(basePlanId)) return null;
 
   const details = detailsForBasePlan(product, basePlanId);
-  const trialDetails = details.find(detailsAreTrial);
-  if (trialDetails?.offerToken) return trialDetails.offerToken;
-  const baseDetails = details.find((item) => isBlankOfferId(item.offerId));
-  if (baseDetails?.offerToken) return baseDetails.offerToken;
-  if (details[0]?.offerToken) return details[0].offerToken;
+  const paidDetails =
+    details.find((item) => isBlankOfferId(item.offerId) && !detailsAreTrial(item)) ??
+    details.find((item) => !detailsAreTrial(item));
+  if (paidDetails?.offerToken) return paidDetails.offerToken;
 
   const offers = offersForBasePlan(product, basePlanId);
-  const trialOffer = offers.find(offerIsTrial);
-  if (trialOffer?.offerTokenAndroid) return trialOffer.offerTokenAndroid;
-  const baseOffer = offers.find((item) => isBlankOfferId(item.id));
-  if (baseOffer?.offerTokenAndroid) return baseOffer.offerTokenAndroid;
-  return offers[0]?.offerTokenAndroid ?? null;
+  const paidOffer =
+    offers.find((item) => isBlankOfferId(item.id) && !offerIsTrial(item)) ??
+    offers.find((item) => !offerIsTrial(item));
+  return paidOffer?.offerTokenAndroid ?? null;
 }
 
 export function displayPriceForBasePlan(
@@ -105,22 +102,6 @@ export function displayPriceForBasePlan(
   }
 
   return product.displayPrice || '';
-}
-
-export function trialInfoForBasePlan(
-  product: PlaySubscriptionLike | null | undefined,
-  basePlanId: string | null | undefined,
-) {
-  if (!product || !isPlayBasePlanId(basePlanId)) return null;
-  for (const offer of offersForBasePlan(product, basePlanId)) {
-    const trial = trialFromOffer(offer);
-    if (trial) return trial;
-  }
-  for (const details of detailsForBasePlan(product, basePlanId)) {
-    const trial = trialFromPricingPhases(details.pricingPhases?.pricingPhaseList);
-    if (trial) return trial;
-  }
-  return null;
 }
 
 export function hasBasePlanOffers(

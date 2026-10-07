@@ -9,11 +9,39 @@
  * OTA JS. ON_ERROR_RECOVERY means a missing first update still boots the
  * embedded bundle instead of crashing.
  */
+const GOOGLE_TEST_ANDROID_APP_ID = 'ca-app-pub-3940256099942544~3347511713';
+const GOOGLE_TEST_IOS_APP_ID = 'ca-app-pub-3940256099942544~1458002511';
+const GOOGLE_TEST_ANDROID_BANNER = 'ca-app-pub-3940256099942544/6300978111';
+const GOOGLE_TEST_ANDROID_INTERSTITIAL = 'ca-app-pub-3940256099942544/1033173712';
+const GOOGLE_TEST_IOS_BANNER = 'ca-app-pub-3940256099942544/2934735716';
+const GOOGLE_TEST_IOS_INTERSTITIAL = 'ca-app-pub-3940256099942544/4411468910';
+
 module.exports = ({ config }) => {
   const isProductionBuild = process.env.EAS_BUILD_PROFILE === 'production';
+  const androidAppId = isProductionBuild
+    ? (process.env.EXPO_PUBLIC_ADMOB_ANDROID_APP_ID || '').trim()
+    : GOOGLE_TEST_ANDROID_APP_ID;
+  const iosAppId = isProductionBuild
+    ? (process.env.EXPO_PUBLIC_ADMOB_IOS_APP_ID || '').trim()
+    : GOOGLE_TEST_IOS_APP_ID;
+
+  const plugins = (config.plugins || []).filter((plugin) => {
+    const name = Array.isArray(plugin) ? plugin[0] : plugin;
+    return name !== 'expo-notifications';
+  });
+  if (androidAppId || iosAppId) {
+    plugins.push([
+      'react-native-google-mobile-ads',
+      {
+        ...(androidAppId ? { androidAppId } : {}),
+        ...(iosAppId ? { iosAppId } : {}),
+      },
+    ]);
+  }
 
   return {
     ...config,
+    plugins,
     extra: {
       ...(config.extra || {}),
       testerAccountEnabled: !isProductionBuild,
@@ -30,6 +58,24 @@ module.exports = ({ config }) => {
       // Never copy SUPABASE_SERVICE_ROLE_KEY (or any other Edge secret) into extra.
       EXPO_PUBLIC_SUPABASE_URL: process.env.EXPO_PUBLIC_SUPABASE_URL || '',
       EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY || '',
+      easBuildProfile: process.env.EAS_BUILD_PROFILE || '',
+      admob: {
+        useTestIds: !isProductionBuild,
+        androidAppId,
+        iosAppId,
+        androidBannerUnitId: isProductionBuild
+          ? (process.env.EXPO_PUBLIC_ADMOB_ANDROID_BANNER_UNIT_ID || '').trim()
+          : GOOGLE_TEST_ANDROID_BANNER,
+        androidInterstitialUnitId: isProductionBuild
+          ? (process.env.EXPO_PUBLIC_ADMOB_ANDROID_INTERSTITIAL_UNIT_ID || '').trim()
+          : GOOGLE_TEST_ANDROID_INTERSTITIAL,
+        iosBannerUnitId: isProductionBuild
+          ? (process.env.EXPO_PUBLIC_ADMOB_IOS_BANNER_UNIT_ID || '').trim()
+          : GOOGLE_TEST_IOS_BANNER,
+        iosInterstitialUnitId: isProductionBuild
+          ? (process.env.EXPO_PUBLIC_ADMOB_IOS_INTERSTITIAL_UNIT_ID || '').trim()
+          : GOOGLE_TEST_IOS_INTERSTITIAL,
+      },
     },
     runtimeVersion: {
       policy: 'appVersion',

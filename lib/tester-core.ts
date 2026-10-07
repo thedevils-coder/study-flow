@@ -1,11 +1,10 @@
-import { addDays } from '@/lib/dates';
-import { getTier } from '@/lib/entitlements';
+import { getTier, hasProAccess } from '@/lib/entitlements';
 import type { UserSession } from '@/types';
 
 export const TESTER_EMAIL = 'tester@getstudyflow.in';
 export const TESTER_DISPLAY_NAME = 'Study Flow Tester';
 export const TESTER_SEED_VERSION = 1;
-export const TESTER_PRODUCT_ID = 'tester_demo_trial';
+export const TESTER_PRODUCT_ID = 'tester_demo_pro';
 
 export function extraFlag(value: unknown): boolean | undefined {
   if (value === true || value === 'true') return true;
@@ -32,14 +31,15 @@ export function isTesterEmail(email: string | null | undefined, configuredEmail?
   return (email ?? '').trim().toLowerCase() === resolveTesterEmail(configuredEmail);
 }
 
-export function testerDemoSnapshot(now = new Date()) {
+export function testerDemoSnapshot() {
   return {
-    plan: 'trial' as const,
+    plan: 'pro' as const,
     subscriptionStatus: 'active' as const,
-    trialEndsAt: addDays(now, 15).toISOString(),
+    expiresAt: null,
+    trialEndsAt: null,
     productId: TESTER_PRODUCT_ID,
     willRenew: false,
-    entitlements: [] as string[],
+    entitlements: ['pro'] as string[],
   };
 }
 
@@ -49,9 +49,10 @@ export function applyTesterDemoAccess(
   enabled = false,
   configuredEmail?: string | null,
 ): UserSession {
+  void now;
   if (!enabled || !isTesterEmail(session.email, configuredEmail)) return session;
-  if (getTier(session) !== 'free') return session;
-  return { ...session, ...testerDemoSnapshot(now) };
+  if (hasProAccess(getTier(session))) return session;
+  return { ...session, ...testerDemoSnapshot() };
 }
 
 export const TESTER_COPY = {
@@ -59,7 +60,7 @@ export const TESTER_COPY = {
   button: 'Tester / Demo Account',
   home: 'This is the Study Flow tester profile with sample study data. Reset it anytime from Settings.',
   subscription:
-    'Tester / Demo trial access is for navigating the app. Google Play purchases are not faked and still require an Android build with Play Billing plus Play products.',
+    'Tester / Demo Pro access is for navigating the app. Google Play purchases are not faked and still require an Android build with Play Billing plus Play products.',
   ai: 'Sample AI Meter history is loaded. Live Leo / AI replies still use the real Edge Function. If that service is not configured, you will see a labeled message instead of a crash.',
   missingPassword:
     'Set EXPO_PUBLIC_TESTER_PASSWORD for this preview/development build, then create the tester user in Supabase Auth (email confirmation off, or confirm once).',

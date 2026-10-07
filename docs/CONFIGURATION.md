@@ -19,7 +19,11 @@ These are account actions, not application-code gaps.
 | Google Play service account JSON | Edge Function secret `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` | Play Developer API. Never `EXPO_PUBLIC_`. Required before paid access can be granted. |
 | Google Play package name | Edge Function secret `GOOGLE_PLAY_PACKAGE_NAME` (optional) | Defaults to `com.prabhjotkaur.studyflow` |
 | Google Play RTDN secret | Edge Function secret `GOOGLE_PLAY_RTDN_SECRET` (optional but recommended) | Bearer token for the `play-billing-rtdn` Pub/Sub push endpoint |
-| Google Play app + subscriptions | Play Console | Required before production IAP works. Product IDs live in `lib/google-play-products.ts` |
+| Google Play app + subscriptions | Play Console | Required before production IAP works. Product IDs live in `lib/google-play-products.ts`. The app sells Pro only; Basic is free. |
+| AdMob Android App ID | `eas.json` `build.production.env` `EXPO_PUBLIC_ADMOB_ANDROID_APP_ID` | Public. Development/preview ignore this and use Google test App IDs. |
+| AdMob Android banner unit ID | `eas.json` `build.production.env` `EXPO_PUBLIC_ADMOB_ANDROID_BANNER_UNIT_ID` | Public. Never use production units in development. |
+| AdMob Android interstitial unit ID | `eas.json` `build.production.env` `EXPO_PUBLIC_ADMOB_ANDROID_INTERSTITIAL_UNIT_ID` | Public. Interstitials are cooldown-gated and never shown on launch. |
+| AdMob iOS IDs | Optional `EXPO_PUBLIC_ADMOB_IOS_*` | Not configured. Android is the production store. |
 | Resend | Supabase Auth email | Domain `auth.getstudyflow.in` |
 | PayPal / Razorpay | Not for Play digital IAP | Modular stubs only |
 | EAS Update | Production profile only | Preview/development use the embedded bundle. Publish with `eas update --channel production` when you want OTA. |

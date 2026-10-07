@@ -13,24 +13,12 @@ import { webDebug } from '@/lib/web-debug';
 import { useAuth } from '@/providers/auth-provider';
 import { useStudy } from '@/providers/study-provider';
 import { useTheme } from '@/providers/theme-provider';
-import { notificationService } from '@/services/settings';
 import { inviteFriends } from '@/services/sharing';
 
 export default function Settings() {
   const { session, signOut, deleteAccount } = useAuth();
-  const { settings, saveSettings, resetTesterData } = useStudy();
+  const { resetTesterData } = useStudy();
   const { preference, setPreference, colors } = useTheme();
-
-  const toggle = async (key: 'notificationsEnabled' | 'studyReminders' | 'taskReminders' | 'goalReminders', value: boolean) => {
-    if (value && key === 'notificationsEnabled') {
-      const permission = await notificationService.requestPermission();
-      if (!permission.granted) {
-        Alert.alert('Notifications', permission.message);
-        return;
-      }
-    }
-    await saveSettings({ [key]: value });
-  };
 
   return (
     <Screen>
@@ -47,36 +35,6 @@ export default function Settings() {
               onPress={() => setPreference(item)}
             />
           ))}
-        </View>
-      </Card>
-
-      <Text style={[styles.section, { color: colors.secondaryText }]}>Notifications / reminders</Text>
-      <Card padded={false}>
-        <View style={{ paddingHorizontal: 16 }}>
-          <ListRow
-            icon="notifications-outline"
-            label="Notifications"
-            value={settings?.notificationsEnabled ? 'On' : 'Off'}
-            onPress={() => void toggle('notificationsEnabled', !settings?.notificationsEnabled)}
-          />
-          <ListRow
-            icon="alarm-outline"
-            label="Study reminders"
-            value={settings?.studyReminders ? 'On' : 'Off'}
-            onPress={() => void toggle('studyReminders', !settings?.studyReminders)}
-          />
-          <ListRow
-            icon="checkbox-outline"
-            label="Task reminders"
-            value={settings?.taskReminders ? 'On' : 'Off'}
-            onPress={() => void toggle('taskReminders', !settings?.taskReminders)}
-          />
-          <ListRow
-            icon="flag-outline"
-            label="Goal reminders"
-            value={settings?.goalReminders ? 'On' : 'Off'}
-            onPress={() => void toggle('goalReminders', !settings?.goalReminders)}
-          />
         </View>
       </Card>
 

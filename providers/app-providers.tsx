@@ -2,6 +2,7 @@ import React, { useCallback, useState } from 'react';
 
 import { WebDialogHost } from '@/components/WebDialogHost';
 import { ThemeProvider } from '@/providers/theme-provider';
+import { AdsProvider } from '@/providers/ads-provider';
 import { AuthProvider } from '@/providers/auth-provider';
 import { StudyProvider, useStudy } from '@/providers/study-provider';
 import type { ThemePreference } from '@/constants/theme';
@@ -30,10 +31,12 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
   return (
     <AuthProvider>
       <StudyProvider>
-        <ThemedTree>
-          {children}
-          <WebDialogHost />
-        </ThemedTree>
+        <AdsProvider>
+          <ThemedTree>
+            {children}
+            <WebDialogHost />
+          </ThemedTree>
+        </AdsProvider>
       </StudyProvider>
     </AuthProvider>
   );

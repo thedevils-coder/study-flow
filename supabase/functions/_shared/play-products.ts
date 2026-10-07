@@ -36,9 +36,11 @@ export function isPlayProductId(value: string | null | undefined): boolean {
 }
 
 /**
- * New Google Play purchases. Accepts only study_flow_basic / study_flow_pro
- * with base plans monthly or yearly. Unknown SKUs and unknown base plans fail closed.
- * Historical four-SKU IDs are not valid Play purchase product IDs.
+ * Play purchase-token verification. Maps current Console SKUs with base plans
+ * monthly or yearly. `study_flow_pro` is the paid product. `study_flow_basic`
+ * is mapped to free Basic so existing tokens/rows can still restore/sync.
+ * Unknown SKUs, unknown base plans, and historical four-SKU IDs fail closed
+ * for new Play verification.
  */
 export function catalogForVerifiedProduct(
   productId: string | null | undefined,

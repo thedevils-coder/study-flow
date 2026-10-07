@@ -9,7 +9,8 @@ export const PLAY_BILLING_PROVIDER = 'google_play';
 
 /**
  * Play Console subscription product IDs. These must match Console exactly.
- * Monthly/yearly are base plans on these two products, not separate SKUs.
+ * `study_flow_basic` is retained only so existing rows and restore/sync can
+ * still be mapped to free Basic. It is not sold.
  */
 export const PLAY_SUBSCRIPTION_SKUS = {
   basic: 'study_flow_basic',
@@ -28,44 +29,24 @@ export type PlayEntitlement = 'basic' | 'pro';
 
 /**
  * UI / purchase selection keys. These are not Play Console product IDs.
- * Query Play with PLAY_PRODUCT_QUERY_SKUS and purchase with playProductId + basePlanId.
+ * Only Pro is sold. Query Play with PLAY_PRODUCT_QUERY_SKUS.
  */
 export const PRODUCT_IDS = {
-  basicMonthly: 'basic_monthly',
-  basicYearly: 'basic_yearly',
   proMonthly: 'pro_monthly',
   proYearly: 'pro_yearly',
 } as const satisfies Record<string, ProductId>;
 
 export type PlayProductCatalogEntry = {
   productId: ProductId;
-  playProductId: PlaySubscriptionSku;
+  playProductId: typeof PLAY_SUBSCRIPTION_SKUS.pro;
   basePlanId: PlayBasePlanId;
-  entitlement: PlayEntitlement;
-  plan: Extract<Plan, 'basic' | 'pro'>;
+  entitlement: 'pro';
+  plan: 'pro';
   period: PlayProductPeriod;
   label: string;
 };
 
 export const PLAY_PRODUCT_CATALOG: Record<ProductId, PlayProductCatalogEntry> = {
-  basic_monthly: {
-    productId: 'basic_monthly',
-    playProductId: 'study_flow_basic',
-    basePlanId: 'monthly',
-    entitlement: 'basic',
-    plan: 'basic',
-    period: 'monthly',
-    label: 'Basic monthly',
-  },
-  basic_yearly: {
-    productId: 'basic_yearly',
-    playProductId: 'study_flow_basic',
-    basePlanId: 'yearly',
-    entitlement: 'basic',
-    plan: 'basic',
-    period: 'yearly',
-    label: 'Basic yearly',
-  },
   pro_monthly: {
     productId: 'pro_monthly',
     playProductId: 'study_flow_pro',
@@ -86,11 +67,8 @@ export const PLAY_PRODUCT_CATALOG: Record<ProductId, PlayProductCatalogEntry> = 
   },
 };
 
-/** SKUs passed to expo-iap fetchProducts. */
-export const PLAY_PRODUCT_QUERY_SKUS: PlaySubscriptionSku[] = [
-  PLAY_SUBSCRIPTION_SKUS.basic,
-  PLAY_SUBSCRIPTION_SKUS.pro,
-];
+/** SKUs passed to expo-iap fetchProducts. Pro is the only paid product. */
+export const PLAY_PRODUCT_QUERY_SKUS: Array<typeof PLAY_SUBSCRIPTION_SKUS.pro> = [PLAY_SUBSCRIPTION_SKUS.pro];
 
 export const PLAY_PRODUCT_ID_LIST = Object.values(PRODUCT_IDS);
 
@@ -103,6 +81,10 @@ const LEGACY_PLAY_PRODUCT_IDS: Record<string, { entitlement: PlayEntitlement; pl
 
 export function isPlaySubscriptionSku(value: string | null | undefined): value is PlaySubscriptionSku {
   return value === PLAY_SUBSCRIPTION_SKUS.basic || value === PLAY_SUBSCRIPTION_SKUS.pro;
+}
+
+export function isPurchasablePlaySku(value: string | null | undefined): value is typeof PLAY_SUBSCRIPTION_SKUS.pro {
+  return value === PLAY_SUBSCRIPTION_SKUS.pro;
 }
 
 export function isPlayBasePlanId(value: string | null | undefined): value is PlayBasePlanId {
@@ -122,7 +104,7 @@ export function playCatalogFromPlay(
   playProductId: string | null | undefined,
   basePlanId: string | null | undefined,
 ): PlayProductCatalogEntry | null {
-  if (!isPlaySubscriptionSku(playProductId) || !isPlayBasePlanId(basePlanId)) return null;
+  if (!isPurchasablePlaySku(playProductId) || !isPlayBasePlanId(basePlanId)) return null;
   return (
     Object.values(PLAY_PRODUCT_CATALOG).find(
       (entry) => entry.playProductId === playProductId && entry.basePlanId === basePlanId,
@@ -148,4 +130,8 @@ export function entitlementFromProductId(productId: string | null | undefined): 
 
 export function planFromProductId(productId: string | null | undefined): Extract<Plan, 'basic' | 'pro'> | null {
   return mappingFromStoredProductId(productId)?.plan ?? null;
+}
+
+export function playBillingIntroCopy() {
+  return 'Android subscriptions use Google Play Billing. Google Play is the source of truth for prices.';
 }

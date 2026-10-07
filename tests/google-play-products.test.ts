@@ -11,6 +11,7 @@ import {
   isPlayBasePlanId,
   isPlayProductId,
   isPlaySubscriptionSku,
+  isPurchasablePlaySku,
   playCatalogFromPlay,
   playProductEntry,
   planFromProductId,
@@ -19,33 +20,26 @@ import { planForVerifiedProduct, subscriptionStatusFromPlayState } from '@/lib/g
 import { catalogForStoredProductId, catalogForVerifiedProduct } from '../supabase/functions/_shared/play-products';
 
 describe('Google Play product catalog', () => {
-  it('queries the existing Play Console subscription SKUs', () => {
-    expect(PLAY_PRODUCT_QUERY_SKUS).toEqual([PLAY_SUBSCRIPTION_SKUS.basic, PLAY_SUBSCRIPTION_SKUS.pro]);
+  it('queries only the paid Pro Play Console SKU', () => {
+    expect(PLAY_PRODUCT_QUERY_SKUS).toEqual([PLAY_SUBSCRIPTION_SKUS.pro]);
     expect(PLAY_SUBSCRIPTION_SKUS.basic).toBe('study_flow_basic');
     expect(PLAY_SUBSCRIPTION_SKUS.pro).toBe('study_flow_pro');
     expect(PLAY_BASE_PLAN_IDS.monthly).toBe('monthly');
     expect(PLAY_BASE_PLAN_IDS.yearly).toBe('yearly');
+    expect(isPurchasablePlaySku('study_flow_pro')).toBe(true);
+    expect(isPurchasablePlaySku('study_flow_basic')).toBe(false);
   });
 
-  it('maps Basic monthly and yearly to the Basic entitlement', () => {
-    expect(playProductEntry(PRODUCT_IDS.basicMonthly)).toMatchObject({
-      playProductId: 'study_flow_basic',
-      basePlanId: 'monthly',
-      entitlement: 'basic',
-      plan: 'basic',
-    });
-    expect(playProductEntry(PRODUCT_IDS.basicYearly)).toMatchObject({
-      playProductId: 'study_flow_basic',
-      basePlanId: 'yearly',
-      entitlement: 'basic',
-    });
-    expect(playCatalogFromPlay('study_flow_basic', 'monthly')?.productId).toBe(PRODUCT_IDS.basicMonthly);
-    expect(playCatalogFromPlay('study_flow_basic', 'yearly')?.productId).toBe(PRODUCT_IDS.basicYearly);
-    expect(entitlementFromProductId(PRODUCT_IDS.basicMonthly)).toBe('basic');
+  it('maps stored Basic SKUs to the free Basic entitlement without selling them', () => {
+    expect(playProductEntry('basic_monthly' as never)).toBeNull();
+    expect(playCatalogFromPlay('study_flow_basic', 'monthly')).toBeNull();
+    expect(playCatalogFromPlay('study_flow_basic', 'yearly')).toBeNull();
     expect(entitlementFromProductId('study_flow_basic')).toBe('basic');
     expect(planFromProductId('study_flow_basic')).toBe('basic');
     expect(planFromProductId('studyflow_basic_monthly')).toBe('basic');
     expect(planFromProductId('studyflow_basic_yearly')).toBe('basic');
+    expect(PLAY_PRODUCT_ID_LIST).not.toContain('basic_monthly');
+    expect(PLAY_PRODUCT_ID_LIST).not.toContain('basic_yearly');
   });
 
   it('maps Pro monthly and yearly to the Pro entitlement', () => {
@@ -69,14 +63,10 @@ describe('Google Play product catalog', () => {
   });
 
   it('keeps UI catalog keys separate from Play query SKUs', () => {
-    expect(PLAY_PRODUCT_ID_LIST).toEqual([
-      PRODUCT_IDS.basicMonthly,
-      PRODUCT_IDS.basicYearly,
-      PRODUCT_IDS.proMonthly,
-      PRODUCT_IDS.proYearly,
-    ]);
-    expect(PLAY_PRODUCT_CATALOG[PRODUCT_IDS.basicMonthly].label).toBe('Basic monthly');
+    expect(PLAY_PRODUCT_ID_LIST).toEqual([PRODUCT_IDS.proMonthly, PRODUCT_IDS.proYearly]);
+    expect(PLAY_PRODUCT_CATALOG[PRODUCT_IDS.proMonthly].label).toBe('Pro monthly');
     expect(isPlayProductId('unknown_sku')).toBe(false);
+    expect(isPlayProductId('basic_monthly')).toBe(false);
     expect(isPlaySubscriptionSku('study_flow_basic')).toBe(true);
     expect(isPlaySubscriptionSku('studyflow_basic_monthly')).toBe(false);
     expect(isPlayBasePlanId('weekly')).toBe(false);
@@ -111,7 +101,7 @@ describe('Google Play product catalog', () => {
     expect(planForVerifiedProduct('study_flow_pro', 'active')).toBe('pro');
     expect(planForVerifiedProduct('study_flow_basic', 'cancelled')).toBe('basic');
     expect(planForVerifiedProduct(PRODUCT_IDS.proMonthly, 'active')).toBe('pro');
-    expect(planForVerifiedProduct(PRODUCT_IDS.basicYearly, 'cancelled')).toBe('basic');
+    expect(planForVerifiedProduct('study_flow_basic', 'cancelled')).toBe('basic');
   });
 
   it('maps verified Play purchases by SKU and base plan', () => {

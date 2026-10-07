@@ -7,7 +7,8 @@ import { aiService } from '@/services/ai';
 import { focusService } from '@/services/focus';
 import { focusTimer } from '@/services/focus-timer';
 import { goalService } from '@/services/goals';
-import { notificationService, settingsService } from '@/services/settings';
+import { showInterstitialAd } from '@/lib/ads';
+import { settingsService } from '@/services/settings';
 import { taskService } from '@/services/tasks';
 import { testerService } from '@/services/tester';
 import type {
@@ -35,7 +36,7 @@ type StudyContextValue = {
   createTask: (title: string, scheduledAt: Date) => Promise<Task>;
   updateTask: (id: string, patch: { title?: string; scheduledAt?: Date | null; completed?: boolean }) => Promise<void>;
   deleteTask: (id: string) => Promise<void>;
-  createGoal: (title: string, target: string, unit?: string, dueAt?: Date | null) => Promise<void>;
+  createGoal: (title: string, target: string, unit?: string, dueAt?: Date | null) => Promise<StudyGoal>;
   updateGoal: (id: string, patch: { title?: string; currentValue?: number; targetValue?: number; unit?: string; dueAt?: Date | null }) => Promise<void>;
   deleteGoal: (id: string) => Promise<void>;
   saveSettings: (patch: Partial<UserSettings>) => Promise<void>;
@@ -47,7 +48,7 @@ type StudyContextValue = {
 const StudyContext = createContext<StudyContextValue | null>(null);
 
 export function StudyProvider({ children }: { children: React.ReactNode }) {
-  const { session } = useAuth();
+  const { session, tier } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [goals, setGoals] = useState<StudyGoal[]>([]);
   const [sessions, setSessions] = useState<FocusSession[]>([]);
@@ -124,12 +125,13 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
         .then((saved) => {
           if (saved) {
             setSessions((current) => [saved, ...current]);
+            void showInterstitialAd({ session, tier, reason: 'session_complete', token: saved.id });
           }
         });
     });
 
     return () => focusTimer.setOnComplete(null);
-  }, [session]);
+  }, [session, tier]);
 
   const progress = useMemo(
     () =>
@@ -164,9 +166,6 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
           scheduledAt: scheduledAt.toISOString(),
         });
         setTasks((current) => [...current, saved]);
-        if (userSettings?.notificationsEnabled && userSettings.taskReminders) {
-          await notificationService.scheduleTaskReminder(saved.id, saved.title, scheduledAt);
-        }
         return saved;
       },
 
@@ -182,7 +181,6 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
 
       async deleteTask(id) {
         await taskService.remove(id);
-        await notificationService.cancelTaskReminder(id);
         setTasks((current) => current.filter((task) => task.id !== id));
       },
 
@@ -196,6 +194,7 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
           dueAt: dueAt?.toISOString() ?? null,
         });
         setGoals((current) => [saved, ...current]);
+        return saved;
       },
 
       async updateGoal(id, patch) {
@@ -243,7 +242,7 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
         await refresh();
       },
     }),
-    [tasks, goals, sessions, previousWeekSessions, achievements, aiActivity, userSettings, progress, loading, error, refresh, session],
+    [tasks, goals, sessions, previousWeekSessions, achievements, aiActivity, userSettings, progress, loading, error, refresh, session, tier],
   );
 
   return <StudyContext.Provider value={value}>{children}</StudyContext.Provider>;

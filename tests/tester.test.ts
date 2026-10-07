@@ -38,11 +38,12 @@ describe('tester account gating', () => {
     expect(isTesterEmail('student@getstudyflow.in')).toBe(false);
   });
 
-  it('applies labeled demo trial access only for the tester on tester builds', () => {
+  it('applies labeled demo Pro access only for the tester on tester builds', () => {
     const demo = applyTesterDemoAccess(session(), now, true);
-    expect(demo.plan).toBe('trial');
+    expect(demo.plan).toBe('pro');
     expect(demo.subscriptionStatus).toBe('active');
-    expect(demo.productId).toBe('tester_demo_trial');
+    expect(demo.productId).toBe('tester_demo_pro');
+    expect(demo.entitlements).toEqual(['pro']);
 
     const production = applyTesterDemoAccess(session(), now, false);
     expect(production.plan).toBe('none');

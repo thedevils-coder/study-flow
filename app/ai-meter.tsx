@@ -206,8 +206,17 @@ export default function AiMeter() {
         </Text>
         <ProgressBar value={usage.limit ? (usage.used / usage.limit) * 100 : 0} />
         <Text style={{ color: colors.mutedText, marginTop: 8, fontSize: 12, lineHeight: 18 }}>
-          Counts successful notes, quizzes, Leo replies, images and PDFs. Failed requests are not counted.
+          {tier === 'pro'
+            ? 'Pro includes 80 AI generations per day. Counts successful notes, quizzes, Leo replies, images and PDFs. Failed requests are not counted.'
+            : 'Basic includes 20 AI generations per day. Counts successful notes, quizzes, Leo replies, images and PDFs. Failed requests are not counted.'}
         </Text>
+        {usage.remaining === 0 ? (
+          <Text style={{ color: colors.warning, marginTop: 8, fontSize: 13, lineHeight: 18 }}>
+            {tier === 'pro'
+              ? 'You have reached today’s 80-generation AI limit. It resets at the next UTC midnight.'
+              : 'You have reached today’s 20-generation limit on Basic. Upgrade to Pro for 80 generations per day.'}
+          </Text>
+        ) : null}
       </View>
 
       <View style={styles.create}>
@@ -358,7 +367,7 @@ export default function AiMeter() {
             </View>
             <Text style={styles.proTitle}>Unlock the full power of AI Meter</Text>
             <Text style={styles.proCopy}>
-              Get unlimited generations, longer content and advanced study tools.
+              Pro includes 80 AI generations per day, no ads, and advanced study tools.
             </Text>
           </View>
           <Pressable onPress={() => router.push('/subscription')} style={styles.proButton}>

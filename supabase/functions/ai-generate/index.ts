@@ -2,6 +2,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 import type { Database, Json } from '../database.types.ts';
+import { aiLimitReachedMessage, dailyAiLimitForPlan } from '../_shared/plans.ts';
 import { buildStudyPdf } from './pdf.ts';
 import {
   chatGemini,
@@ -288,17 +289,12 @@ Deno.serve(async (request: Request) => {
     ['active', 'cancelled', 'ending'].includes(String(subscription?.state)) &&
     (!subscription?.expires_at || new Date(String(subscription.expires_at)).getTime() > Date.now());
   const isPro = active && entitlementIds.some((value) => value.includes('pro'));
-  const trialActive = active && entitlementIds.some((value) => value.includes('trial'));
-  const isBasic =
-    active &&
-    (isPro || entitlementIds.some((value) => ['basic', 'premium', 'monthly', 'yearly'].some((part) => value.includes(part))));
-  const tier = isPro ? 'pro' : isBasic || trialActive || active ? 'basic' : 'none';
-  if (tier === 'none') return fail(402, 'Start a free trial or choose Basic to use AI Meter.', 'payment_required');
-  if (PRO_KINDS.has(kind) && tier !== 'pro' && !trialActive) {
-    return fail(402, 'This tool is included with Study Flow Pro and the free trial.', 'payment_required');
+  const tier = isPro ? 'pro' : 'basic';
+  if (PRO_KINDS.has(kind) && tier !== 'pro') {
+    return fail(402, 'This tool is included with Study Flow Pro.', 'payment_required');
   }
 
-  const limit = tier === 'pro' ? 80 : 10;
+  const limit = dailyAiLimitForPlan(tier);
   const start = new Date();
   start.setUTCHours(0, 0, 0, 0);
   const counted = await admin
@@ -318,7 +314,7 @@ Deno.serve(async (request: Request) => {
   const used = countResult.count ?? 0;
   if (used >= limit) {
     return json(
-      { success: false, error: 'You have reached today’s AI limit for your plan.', code: 'rate_limited', usage: { remaining: 0, limit, used } },
+      { success: false, error: aiLimitReachedMessage(tier), code: 'rate_limited', usage: { remaining: 0, limit, used } },
       429,
     );
   }

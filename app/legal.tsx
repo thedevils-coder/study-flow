@@ -17,7 +17,7 @@ const docs = {
   },
   subscription: {
     title: 'Subscription terms',
-    body: `Free trial: 15 days, configured in the store. Basic: ₹99/month or ₹1,000/year. Pro: ₹299/month or ₹2,500/year. Cancel or change plans in Google Play. Restoring purchases uses the store account on this device.`,
+    body: `Basic is free forever (₹0) with 20 AI generations per day and ads. Pro is ₹299/month or ₹2,500/year with 80 AI generations per day and no ads. Cancel or change Pro in Google Play. Restoring purchases uses the store account on this device.`,
   },
   support: {
     title: 'Support',

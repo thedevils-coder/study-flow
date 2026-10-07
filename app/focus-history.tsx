@@ -1,6 +1,7 @@
 import { formatDuration, startOfDay } from '@/lib/dates';
 import { StyleSheet, Text, View } from 'react-native';
 
+import { BannerAdSlot } from '@/components/BannerAdSlot';
 import { Card } from '@/components/Card';
 import { EmptyState } from '@/components/EmptyState';
 import { Screen } from '@/components/Screen';
@@ -30,6 +31,8 @@ export default function FocusHistory() {
         <StatCard label="Average" value={formatDuration(average)} />
         <StatCard label="Sessions" value={String(sessions.length)} />
       </View>
+
+      <BannerAdSlot placement="focus-history" />
 
       <Text style={[styles.heading, { color: colors.text }]}>Recent sessions</Text>
       {recent.length === 0 ? (
