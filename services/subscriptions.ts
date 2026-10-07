@@ -268,10 +268,7 @@ export async function purchaseProduct(productId: ProductId, session: UserSession
   if (!iap) throw new Error(billingUnavailableMessage());
 
   const entry = playProductEntry(productId);
-  if (!entry) {
-    throw new Error('This subscription product is not a Study Flow Pro plan.');
-  }
-  if (entry.entitlement !== 'pro') {
+  if (!entry || entry.entitlement !== 'pro' || entry.playProductId !== 'study_flow_pro') {
     throw new Error('Basic is free. Subscribe to Pro through Google Play for the paid plan.');
   }
 

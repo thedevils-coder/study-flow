@@ -7,24 +7,24 @@ import {
 } from '@/lib/google-play-offers';
 import type { PlaySubscriptionLike } from '@/lib/google-play-offers';
 
-const basicProduct = (): PlaySubscriptionLike => ({
-  id: 'study_flow_basic',
-  displayPrice: '₹99.00',
+const proProduct = (): PlaySubscriptionLike => ({
+  id: 'study_flow_pro',
+  displayPrice: '₹299.00',
   subscriptionOfferDetailsAndroid: [
     {
       basePlanId: 'monthly',
       offerId: null,
-      offerToken: 'token-basic-monthly',
+      offerToken: 'token-pro-monthly',
       pricingPhases: {
-        pricingPhaseList: [{ priceAmountMicros: '99000000', billingPeriod: 'P1M', formattedPrice: '₹99.00' }],
+        pricingPhaseList: [{ priceAmountMicros: '299000000', billingPeriod: 'P1M', formattedPrice: '₹299.00' }],
       },
     },
     {
       basePlanId: 'yearly',
       offerId: null,
-      offerToken: 'token-basic-yearly',
+      offerToken: 'token-pro-yearly',
       pricingPhases: {
-        pricingPhaseList: [{ priceAmountMicros: '1000000000', billingPeriod: 'P1Y', formattedPrice: '₹1,000.00' }],
+        pricingPhaseList: [{ priceAmountMicros: '2500000000', billingPeriod: 'P1Y', formattedPrice: '₹2,500.00' }],
       },
     },
   ],
@@ -32,15 +32,15 @@ const basicProduct = (): PlaySubscriptionLike => ({
     {
       basePlanIdAndroid: 'monthly',
       id: '',
-      offerTokenAndroid: 'token-basic-monthly',
-      displayPrice: '₹99.00',
+      offerTokenAndroid: 'token-pro-monthly',
+      displayPrice: '₹299.00',
       paymentMode: 'unknown',
     },
     {
       basePlanIdAndroid: 'yearly',
       id: '',
-      offerTokenAndroid: 'token-basic-yearly',
-      displayPrice: '₹1,000.00',
+      offerTokenAndroid: 'token-pro-yearly',
+      displayPrice: '₹2,500.00',
       paymentMode: 'unknown',
     },
   ],
@@ -100,7 +100,7 @@ const proWithEligibleTrial = (): PlaySubscriptionLike => ({
 
 describe('Google Play offer-token selection', () => {
   it('selects the monthly and yearly offer tokens from the existing base plans', () => {
-    const product = basicProduct();
+    const product = proProduct();
     const yearlyFirst: PlaySubscriptionLike = {
       ...product,
       subscriptionOfferDetailsAndroid: [
@@ -108,12 +108,12 @@ describe('Google Play offer-token selection', () => {
         product.subscriptionOfferDetailsAndroid![0],
       ],
     };
-    expect(offerTokenForBasePlan(product, 'monthly')).toBe('token-basic-monthly');
-    expect(offerTokenForBasePlan(product, 'yearly')).toBe('token-basic-yearly');
-    expect(offerTokenForBasePlan(yearlyFirst, 'monthly')).toBe('token-basic-monthly');
-    expect(offerTokenForBasePlan(yearlyFirst, 'yearly')).toBe('token-basic-yearly');
-    expect(displayPriceForBasePlan(product, 'monthly')).toBe('₹99.00');
-    expect(displayPriceForBasePlan(product, 'yearly')).toBe('₹1,000.00');
+    expect(offerTokenForBasePlan(product, 'monthly')).toBe('token-pro-monthly');
+    expect(offerTokenForBasePlan(product, 'yearly')).toBe('token-pro-yearly');
+    expect(offerTokenForBasePlan(yearlyFirst, 'monthly')).toBe('token-pro-monthly');
+    expect(offerTokenForBasePlan(yearlyFirst, 'yearly')).toBe('token-pro-yearly');
+    expect(displayPriceForBasePlan(product, 'monthly')).toBe('₹299.00');
+    expect(displayPriceForBasePlan(product, 'yearly')).toBe('₹2,500.00');
     expect(hasBasePlanOffers(product, 'monthly')).toBe(true);
     expect(hasBasePlanOffers(product, 'yearly')).toBe(true);
   });
@@ -146,10 +146,10 @@ describe('Google Play offer-token selection', () => {
   });
 
   it('rejects unknown products and unknown base plans', () => {
-    expect(offerTokenForBasePlan(basicProduct(), 'weekly')).toBeNull();
-    expect(offerTokenForBasePlan(basicProduct(), null)).toBeNull();
+    expect(offerTokenForBasePlan(proProduct(), 'weekly')).toBeNull();
+    expect(offerTokenForBasePlan(proProduct(), null)).toBeNull();
     expect(offerTokenForBasePlan(null, 'monthly')).toBeNull();
-    expect(hasBasePlanOffers(basicProduct(), 'lifetime')).toBe(false);
+    expect(hasBasePlanOffers(proProduct(), 'lifetime')).toBe(false);
     expect(offerTokenForBasePlan({ id: 'unknown', subscriptionOfferDetailsAndroid: [] }, 'monthly')).toBeNull();
   });
 });

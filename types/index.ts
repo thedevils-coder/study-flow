@@ -20,11 +20,7 @@ export type TaskCategory = 'study' | 'break' | 'focus';
 
 export type SessionType = 'focus' | 'short_break' | 'long_break';
 
-export type ProductId =
-  | 'basic_monthly'
-  | 'basic_yearly'
-  | 'pro_monthly'
-  | 'pro_yearly';
+export type ProductId = 'pro_monthly' | 'pro_yearly';
 
 export type AiKind =
   | 'notes'

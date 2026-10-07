@@ -36,6 +36,8 @@ describe('Google Play trial offers are skipped, not sold', () => {
     const source = readFileSync(path.resolve(__dirname, '../app/subscription.tsx'), 'utf8');
     expect(source).not.toMatch(/15-day free trial/i);
     expect(source).not.toMatch(/Start Free Trial/i);
+    expect(source).not.toMatch(/Choose Basic/i);
+    expect(source).not.toMatch(/basic_monthly|basic_yearly/);
     expect(source).toMatch(/FREE/);
   });
 });
