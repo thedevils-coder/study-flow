@@ -29,12 +29,12 @@ module.exports = ({ config }) => {
     const name = Array.isArray(plugin) ? plugin[0] : plugin;
     return name !== 'expo-notifications';
   });
-  if (androidAppId && iosAppId) {
+  if (androidAppId || iosAppId) {
     plugins.push([
       'react-native-google-mobile-ads',
       {
-        androidAppId,
-        iosAppId,
+        ...(androidAppId ? { androidAppId } : {}),
+        ...(iosAppId ? { iosAppId } : {}),
       },
     ]);
   }

@@ -15,7 +15,12 @@
     },
     "production": {
       "autoIncrement": true,
-      "channel": "production"
+      "channel": "production",
+      "env": {
+        "EXPO_PUBLIC_ADMOB_ANDROID_APP_ID": "ca-app-pub-9082511343175778~1064883159",
+        "EXPO_PUBLIC_ADMOB_ANDROID_BANNER_UNIT_ID": "ca-app-pub-9082511343175778/5692102889",
+        "EXPO_PUBLIC_ADMOB_ANDROID_INTERSTITIAL_UNIT_ID": "ca-app-pub-9082511343175778/9246625500"
+      }
     }
   },
   "submit": {
