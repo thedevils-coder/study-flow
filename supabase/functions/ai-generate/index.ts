@@ -291,34 +291,31 @@ Deno.serve(async (request) => {
   }
 
   const limit = dailyAiLimitForPlan(tier);
-  const start = new Date();
-  start.setUTCHours(0, 0, 0, 0);
-  const counted = await admin
-    .from('ai_generations')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .gte('created_at', start.toISOString())
-    .eq('status', 'success');
-  const countResult =
-    counted.error && /status|PGRST204|42703/i.test(counted.error.message)
-      ? await admin.from('ai_generations').select('id', { count: 'exact', head: true }).eq('user_id', userId).gte('created_at', start.toISOString())
-      : counted;
-  if (countResult.error && /schema cache|does not exist|PGRST205|42P01/i.test(countResult.error.message)) {
-    return fail(503, 'The ai_generations table is missing. Apply the Study Flow AI migrations.', 'missing_relation');
+  const quota = await takeQuotaSlot(admin, userId, tier, limit);
+  if (quota.kind === 'error') {
+    return fail(quota.status, quota.error, quota.code);
   }
-  if (countResult.error) return fail(500, 'Unable to check usage.', 'database_error');
-  const used = countResult.count ?? 0;
-  if (used >= limit) {
+  if (!quota.allowed) {
     return json(
       {
         success: false,
         error: aiLimitReachedMessage(tier),
         code: 'rate_limited',
-        usage: { remaining: 0, limit, used },
+        usage: { remaining: 0, limit: quota.limit, used: quota.used },
       },
       429,
     );
   }
+
+  const reservationId = quota.reservationId;
+  const usedAfterHold = quota.used;
+  let released = false;
+  const releaseHold = async () => {
+    if (released) return;
+    released = true;
+    if (reservationId) await releaseQuotaSlot(admin, reservationId, userId);
+  };
+  let streamingResponse = false;
 
   const route = classify(prompt, attachments.length > 0, preferredDetail);
   const storeKind = kindForMode(route.mode, kind);
@@ -601,6 +598,7 @@ Deno.serve(async (request) => {
         latency: Date.now() - started,
         conversationId,
       });
+      await releaseHold();
 
       return {
         success: true as const,
@@ -615,11 +613,12 @@ Deno.serve(async (request) => {
         artifacts,
         provider,
         model,
-        usage: { remaining: Math.max(0, limit - used - 1), limit, used: used + 1 },
+        usage: { remaining: Math.max(0, limit - usedAfterHold), limit, used: usedAfterHold },
       };
     };
 
     if (wantsStream) {
+      streamingResponse = true;
       return new Response(
         new ReadableStream({
           async start(controller) {
@@ -647,6 +646,8 @@ Deno.serve(async (request) => {
                 }),
               );
               controller.close();
+            } finally {
+              await releaseHold();
             }
           },
         }),
@@ -668,6 +669,8 @@ Deno.serve(async (request) => {
     const code = err.code ?? 'unhandled_error';
     const message = (err.message || "Leo couldn't complete that request. Please try again.").replace(/sk-[A-Za-z0-9_-]+/g, '[redacted]');
     return fail(status, message, code, err.details as Record<string, unknown> | undefined);
+  } finally {
+    if (!streamingResponse) await releaseHold();
   }
 });
 
@@ -745,4 +748,89 @@ async function storeSuccess(
     throw new ProviderError('Unable to store generation.', 'database_error', 500, { message: stored.error.message });
   }
   return stored.data as { id: string };
+}
+
+type QuotaSlot =
+  | { kind: 'ok'; allowed: true; reservationId: string | null; used: number; remaining: number; limit: number }
+  | { kind: 'ok'; allowed: false; reservationId: null; used: number; remaining: 0; limit: number }
+  | { kind: 'error'; status: number; error: string; code: string };
+
+function isMissingRpc(message: string) {
+  return /PGRST202|42883|Could not find the function/i.test(message);
+}
+
+async function takeQuotaSlot(
+  admin: ReturnType<typeof createClient>,
+  userId: string,
+  plan: string,
+  limit: number,
+): Promise<QuotaSlot> {
+  const reserved = await admin.rpc('reserve_ai_generation_slot', { p_user_id: userId, p_plan: plan });
+  if (!reserved.error) {
+    const payload = (typeof reserved.data === 'string' ? JSON.parse(reserved.data) : reserved.data) as {
+      allowed?: boolean;
+      id?: string | null;
+      used?: number;
+      remaining?: number;
+      limit?: number;
+    } | null;
+    const used = Number(payload?.used) || 0;
+    const resolvedLimit = Number(payload?.limit) || limit;
+    if (!payload?.allowed) {
+      return { kind: 'ok', allowed: false, reservationId: null, used, remaining: 0, limit: resolvedLimit };
+    }
+    return {
+      kind: 'ok',
+      allowed: true,
+      reservationId: typeof payload.id === 'string' ? payload.id : null,
+      used,
+      remaining: Number(payload.remaining) || 0,
+      limit: resolvedLimit,
+    };
+  }
+  if (!isMissingRpc(reserved.error.message)) {
+    if (/schema cache|does not exist|PGRST205|42P01/i.test(reserved.error.message)) {
+      return {
+        kind: 'error',
+        status: 503,
+        error: 'Apply supabase/migrations/202611120003_ai_generation_reservations.sql.',
+        code: 'missing_relation',
+      };
+    }
+    return { kind: 'error', status: 500, error: 'Unable to check usage.', code: 'database_error' };
+  }
+
+  const start = new Date();
+  start.setUTCHours(0, 0, 0, 0);
+  const counted = await admin
+    .from('ai_generations')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .gte('created_at', start.toISOString())
+    .eq('status', 'success');
+  const countResult =
+    counted.error && /status|PGRST204|42703/i.test(counted.error.message)
+      ? await admin.from('ai_generations').select('id', { count: 'exact', head: true }).eq('user_id', userId).gte('created_at', start.toISOString())
+      : counted;
+  if (countResult.error && /schema cache|does not exist|PGRST205|42P01/i.test(countResult.error.message)) {
+    return {
+      kind: 'error',
+      status: 503,
+      error: 'The ai_generations table is missing. Apply the Study Flow AI migrations.',
+      code: 'missing_relation',
+    };
+  }
+  if (countResult.error) return { kind: 'error', status: 500, error: 'Unable to check usage.', code: 'database_error' };
+  const used = countResult.count ?? 0;
+  if (used >= limit) {
+    return { kind: 'ok', allowed: false, reservationId: null, used, remaining: 0, limit };
+  }
+  return { kind: 'ok', allowed: true, reservationId: null, used: used + 1, remaining: Math.max(0, limit - used - 1), limit };
+}
+
+async function releaseQuotaSlot(admin: ReturnType<typeof createClient>, id: string, userId: string) {
+  const released = await admin.rpc('release_ai_generation_slot', { p_id: id, p_user_id: userId });
+  if (released.error && !isMissingRpc(released.error.message)) {
+    await admin.rpc('release_ai_generation_slot', { p_id: id, p_user_id: userId });
+  }
 }
