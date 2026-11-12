@@ -18,10 +18,12 @@ These are account actions, not application-code gaps.
 | IMAGE_MODEL | Edge Function secret (optional) | Default `dall-e-3` |
 | RevenueCat public SDK keys | EAS secrets / `.env` | Test Store can stay; production products are separate |
 | RevenueCat webhook secret | Edge Function secret | Deploy `revenuecat-webhook --no-verify-jwt` |
-| Google Play app + subscriptions | Play Console | Required before production IAP works |
+| Google Play app + subscriptions | Play Console | Required before production IAP works. Basic is free; Pro is ₹299/month or ₹2,500/year. |
+| AdMob Android App ID | EAS production env `EXPO_PUBLIC_ADMOB_ANDROID_APP_ID` | Development/preview use Google test App IDs. |
+| AdMob Android banner/interstitial unit IDs | EAS production env `EXPO_PUBLIC_ADMOB_ANDROID_BANNER_UNIT_ID` and `EXPO_PUBLIC_ADMOB_ANDROID_INTERSTITIAL_UNIT_ID` | Do not publish test IDs as production IDs. |
 | Resend | Supabase Auth email | Domain `auth.getstudyflow.in` |
 | PayPal / Razorpay | Not for Play digital IAP | Modular stubs only |
 | EAS Update | Production profile only | Preview/development use the embedded bundle. Publish with `eas update --channel production` when you want OTA. |
-| Tester / Demo account | Preview & development builds | Button on Welcome/Sign in. Email `tester@getstudyflow.in`. Override password with `EXPO_PUBLIC_TESTER_PASSWORD`. Apply `202609160001_tester_seed.sql`. Production builds hide this. |
+| Tester / Demo account | Not shown in the public app or website | Existing Supabase tester data is left in place. |
 
 Android package: `com.prabhjotkaur.studyflow`

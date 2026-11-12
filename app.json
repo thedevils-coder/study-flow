@@ -26,7 +26,7 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow Study Flow to attach study photos for Leo."
+          "photosPermission": "Allow Study Flow to set a profile picture and attach study photos for Leo."
         }
       ]
     ],

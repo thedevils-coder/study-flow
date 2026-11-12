@@ -18,6 +18,7 @@ import type {
   Task,
   UserSettings,
 } from '@/types';
+import { useAds } from '@/providers/ads-provider';
 import { useAuth } from '@/providers/auth-provider';
 
 type StudyContextValue = {
@@ -48,6 +49,7 @@ const StudyContext = createContext<StudyContextValue | null>(null);
 
 export function StudyProvider({ children }: { children: React.ReactNode }) {
   const { session } = useAuth();
+  const { maybeShowInterstitial } = useAds();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [goals, setGoals] = useState<StudyGoal[]>([]);
   const [sessions, setSessions] = useState<FocusSession[]>([]);
@@ -124,12 +126,13 @@ export function StudyProvider({ children }: { children: React.ReactNode }) {
         .then((saved) => {
           if (saved) {
             setSessions((current) => [saved, ...current]);
+            maybeShowInterstitial();
           }
         });
     });
 
     return () => focusTimer.setOnComplete(null);
-  }, [session]);
+  }, [session, maybeShowInterstitial]);
 
   const progress = useMemo(
     () =>

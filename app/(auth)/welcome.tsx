@@ -3,9 +3,7 @@ import { router } from 'expo-router';
 
 import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
-import { TesterAccountButton } from '@/components/TesterAccountButton';
 import { BRAND } from '@/constants/brand';
-import { isTesterBuildEnabled } from '@/lib/tester';
 import { useTheme } from '@/providers/theme-provider';
 
 export default function Welcome() {
@@ -24,12 +22,6 @@ export default function Welcome() {
       <Button label="Create account" onPress={() => router.push('/(auth)/sign-up')} />
       <View style={{ height: 12 }} />
       <Button label="Sign in" variant="secondary" onPress={() => router.push('/(auth)/sign-in')} />
-      {isTesterBuildEnabled() ? (
-        <>
-          <View style={{ height: 20 }} />
-          <TesterAccountButton />
-        </>
-      ) : null}
     </Screen>
   );
 }

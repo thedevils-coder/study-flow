@@ -30,6 +30,7 @@ type AuthContextValue = {
   resetPassword: (email: string) => Promise<void>;
   signOut: () => Promise<void>;
   deleteAccount: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
   refreshSubscription: () => Promise<void>;
   purchase: (productId: ProductId) => Promise<void>;
   restore: () => Promise<void>;
@@ -162,6 +163,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await authService.deleteAccount();
         await leoSessionStore.clearShared();
         setSession(null);
+      },
+
+      async refreshProfile() {
+        if (!session) return;
+        const profile = await hydrateProfile(session);
+        setSession(applyTesterDemoAccess(profile));
       },
 
       async refreshSubscription() {

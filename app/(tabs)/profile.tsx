@@ -3,10 +3,9 @@ import { Alert, StyleSheet, Text, View } from 'react-native';
 
 import { Card } from '@/components/Card';
 import { ListRow } from '@/components/ListRow';
+import { ProfileAvatar } from '@/components/ProfileAvatar';
 import { Screen } from '@/components/Screen';
-import { TestStateNotice } from '@/components/TestStateNotice';
 import { displayPlanLabel } from '@/lib/entitlements';
-import { TESTER_COPY, isTesterBuildEnabled, isTesterSession } from '@/lib/tester';
 import { useAuth } from '@/providers/auth-provider';
 import { useStudy } from '@/providers/study-provider';
 import { useTheme } from '@/providers/theme-provider';
@@ -20,13 +19,8 @@ export default function Profile() {
   return (
     <Screen>
       <Text style={[styles.title, { color: colors.text }]}>Profile</Text>
-      {isTesterBuildEnabled() && isTesterSession(session) ? (
-        <TestStateNotice title="Tester / Demo account" message={TESTER_COPY.home} />
-      ) : null}
       <Card style={styles.person}>
-        <View style={[styles.avatar, { backgroundColor: colors.accentSoft }]}>
-          <Text style={{ fontSize: 28 }}>🎓</Text>
-        </View>
+        <ProfileAvatar uri={session?.avatarUrl} size={64} />
         <View style={{ flex: 1 }}>
           <Text style={[styles.name, { color: colors.text }]}>{session?.name}</Text>
           <Text style={{ color: colors.secondaryText }}>{session?.email}</Text>
@@ -84,7 +78,6 @@ export default function Profile() {
 const styles = StyleSheet.create({
   title: { fontSize: 30, fontWeight: '800', marginBottom: 16 },
   person: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  avatar: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center' },
   name: { fontSize: 19, fontWeight: '900' },
   streak: { borderRadius: 16, padding: 18, marginBottom: 14 },
   streakText: { color: 'white', fontWeight: '800' },

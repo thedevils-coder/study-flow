@@ -2,6 +2,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { BannerAdSlot } from '@/components/BannerAdSlot';
+import { ProfileAvatar } from '@/components/ProfileAvatar';
+
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { EmptyState } from '@/components/EmptyState';
@@ -10,10 +13,8 @@ import { LoadingState } from '@/components/LoadingState';
 import { Screen } from '@/components/Screen';
 import { StatCard } from '@/components/StatCard';
 import { TaskRow } from '@/components/TaskRow';
-import { TestStateNotice } from '@/components/TestStateNotice';
 import { formatDate, formatDuration, greetingFor, startOfDay } from '@/lib/dates';
 import { displayPlanLabel } from '@/lib/entitlements';
-import { TESTER_COPY, isTesterBuildEnabled, isTesterSession } from '@/lib/tester';
 import { useAuth } from '@/providers/auth-provider';
 import { useStudy } from '@/providers/study-provider';
 import { useTheme } from '@/providers/theme-provider';
@@ -41,14 +42,10 @@ export default function Home() {
           </Text>
           <Text style={[styles.date, { color: colors.secondaryText }]}>{formatDate(new Date())}</Text>
         </View>
-        <Pressable onPress={() => router.push('/(tabs)/profile')} style={[styles.avatar, { backgroundColor: colors.accentSoft }]}>
-          <Text style={{ fontSize: 22 }}>🎓</Text>
+        <Pressable onPress={() => router.push('/(tabs)/profile')}>
+          <ProfileAvatar uri={session?.avatarUrl} size={48} />
         </Pressable>
       </View>
-
-      {isTesterBuildEnabled() && isTesterSession(session) ? (
-        <TestStateNotice title="Tester profile" message={TESTER_COPY.home} />
-      ) : null}
 
       {error ? <ErrorState message={error} onRetry={() => void refresh()} /> : null}
       {loading && tasks.length === 0 ? <LoadingState message="Loading today..." /> : null}
@@ -106,6 +103,7 @@ export default function Home() {
       )}
 
       <Button label="View planner" variant="ghost" onPress={() => router.push('/(tabs)/plan')} />
+      <BannerAdSlot />
     </Screen>
   );
 }

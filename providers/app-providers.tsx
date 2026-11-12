@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from 'react';
 
+import { AdsProvider } from '@/providers/ads-provider';
 import { ThemeProvider } from '@/providers/theme-provider';
 import { AuthProvider } from '@/providers/auth-provider';
 import { StudyProvider, useStudy } from '@/providers/study-provider';
@@ -28,9 +29,11 @@ function ThemedTree({ children }: { children: React.ReactNode }) {
 export function AppProviders({ children }: { children: React.ReactNode }) {
   return (
     <AuthProvider>
-      <StudyProvider>
-        <ThemedTree>{children}</ThemedTree>
-      </StudyProvider>
+      <AdsProvider>
+        <StudyProvider>
+          <ThemedTree>{children}</ThemedTree>
+        </StudyProvider>
+      </AdsProvider>
     </AuthProvider>
   );
 }

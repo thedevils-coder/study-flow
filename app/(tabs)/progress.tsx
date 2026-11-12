@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 
+import { BannerAdSlot } from '@/components/BannerAdSlot';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { ErrorState } from '@/components/ErrorState';
@@ -99,6 +100,7 @@ export default function Progress() {
           <GoalCard key={goal.id} goal={goal} onPress={() => router.push('/goals')} />
         ))
       )}
+      <BannerAdSlot />
     </Screen>
   );
 }

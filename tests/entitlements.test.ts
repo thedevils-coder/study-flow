@@ -22,11 +22,14 @@ const session = (overrides: Partial<UserSession> = {}): UserSession => ({
 });
 
 describe('subscription entitlements', () => {
-  it('maps legacy monthly to basic', () => {
+  it('maps legacy monthly and trial rows to basic', () => {
     expect(normalizePlan('monthly')).toBe('basic');
+    expect(normalizePlan('trial')).toBe('basic');
+    expect(normalizePlan('none')).toBe('basic');
   });
 
-  it('treats an active basic entitlement as basic', () => {
+  it('treats signed-in users without Pro as Basic', () => {
+    expect(getTier(session())).toBe('basic');
     expect(
       getTier(session({ plan: 'basic', subscriptionStatus: 'active', entitlements: ['basic'] })),
     ).toBe('basic');
@@ -38,29 +41,27 @@ describe('subscription entitlements', () => {
     ).toBe('pro');
   });
 
-  it('uses provider trial state rather than a local boolean', () => {
+  it('does not keep trial as a user-facing plan', () => {
     expect(
       getTier(
         session({
-          plan: 'trial',
+          plan: 'trial' as unknown as UserSession['plan'],
           subscriptionStatus: 'active',
           trialEndsAt: '2099-01-01T00:00:00.000Z',
           entitlements: ['basic'],
         }),
       ),
-    ).toBe('trial');
+    ).toBe('basic');
   });
 
-  it('gates AI kinds by plan', () => {
-    expect(canUseKind('free', 'notes')).toBe(false);
+  it('lets Basic use Leo while keeping Schedule Maker and quiz tools on Pro', () => {
     expect(canUseKind('basic', 'notes')).toBe(true);
-    expect(canUseKind('basic', 'leo')).toBe(false);
-    expect(canUseKind('trial', 'leo')).toBe(true);
+    expect(canUseKind('basic', 'leo')).toBe(true);
+    expect(canUseKind('basic', 'schedule')).toBe(false);
     expect(canUseKind('pro', 'schedule')).toBe(true);
     expect(hasBasicAccess('basic')).toBe(true);
     expect(hasProAccess('basic')).toBe(false);
     expect(dailyAiLimit('pro')).toBe(80);
-    expect(dailyAiLimit('basic')).toBe(10);
-    expect(dailyAiLimit('free')).toBe(0);
+    expect(dailyAiLimit('basic')).toBe(20);
   });
 });

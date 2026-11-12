@@ -9,23 +9,38 @@
  * OTA JS. ON_ERROR_RECOVERY means a missing first update still boots the
  * embedded bundle instead of crashing.
  */
+const GOOGLE_TEST_ANDROID_APP_ID = 'ca-app-pub-3940256099942544~3347511713';
+const GOOGLE_TEST_IOS_APP_ID = 'ca-app-pub-3940256099942544~1458002511';
+
 module.exports = ({ config }) => {
   const isProductionBuild = process.env.EAS_BUILD_PROFILE === 'production';
+  const androidAppId =
+    isProductionBuild && process.env.EXPO_PUBLIC_ADMOB_ANDROID_APP_ID
+      ? process.env.EXPO_PUBLIC_ADMOB_ANDROID_APP_ID
+      : GOOGLE_TEST_ANDROID_APP_ID;
+  const iosAppId =
+    isProductionBuild && process.env.EXPO_PUBLIC_ADMOB_IOS_APP_ID
+      ? process.env.EXPO_PUBLIC_ADMOB_IOS_APP_ID
+      : GOOGLE_TEST_IOS_APP_ID;
 
   return {
     ...config,
     extra: {
       ...(config.extra || {}),
-      testerAccountEnabled: !isProductionBuild,
-      testerEmail: isProductionBuild
-        ? ''
-        : process.env.EXPO_PUBLIC_TESTER_EMAIL || 'tester@getstudyflow.in',
-      // Preview/development demo password only. Production binaries get an empty value.
-      // Override with EXPO_PUBLIC_TESTER_PASSWORD. This is a labeled demo credential, not a production secret.
-      testerPassword: isProductionBuild
-        ? ''
-        : process.env.EXPO_PUBLIC_TESTER_PASSWORD || 'StudyFlow-Tester-Preview',
+      testerAccountEnabled: false,
+      testerEmail: '',
+      testerPassword: '',
     },
+    plugins: [
+      ...(config.plugins || []),
+      [
+        'react-native-google-mobile-ads',
+        {
+          androidAppId,
+          iosAppId,
+        },
+      ],
+    ],
     runtimeVersion: {
       policy: 'appVersion',
     },

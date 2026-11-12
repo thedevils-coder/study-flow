@@ -146,15 +146,15 @@ describe('sources and usage', () => {
     expect(shouldCountUsage({ stored: false, success: true })).toBe(false);
     expect(shouldCountUsage({ stored: true, success: false })).toBe(false);
     expect(shouldCountUsage({ stored: true, success: true })).toBe(true);
-    expect(remainingAllowance(3, 10)).toBe(7);
+    expect(remainingAllowance(3, 20)).toBe(17);
   });
 
   it('keeps subscription gating', () => {
-    expect(canUseKind('free', 'leo')).toBe(false);
     expect(canUseKind('basic', 'notes')).toBe(true);
-    expect(canUseKind('basic', 'leo')).toBe(false);
+    expect(canUseKind('basic', 'leo')).toBe(true);
+    expect(canUseKind('basic', 'schedule')).toBe(false);
     expect(canUseKind('pro', 'leo')).toBe(true);
-    expect(dailyAiLimit('basic')).toBe(10);
+    expect(dailyAiLimit('basic')).toBe(20);
   });
 
   it('surfaces structured Edge Function errors including 404 and provider failure', async () => {

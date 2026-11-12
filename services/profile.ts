@@ -1,9 +1,11 @@
+import { signedAvatarUrl } from '@/services/avatar';
 import { getSupabase, isSupabaseConfigured } from '@/lib/supabase';
 import type { UserSession } from '@/types';
 
 type ProfileRow = {
   display_name: string | null;
   role: 'user' | 'admin' | null;
+  avatar_path?: string | null;
 };
 
 type SubscriptionRow = {
@@ -20,7 +22,12 @@ export async function hydrateProfile(session: UserSession): Promise<UserSession>
 
   const client = getSupabase();
   const [{ data: profile }, { data: subscription }] = await Promise.all([
-    client.from('profiles').select('display_name, role').eq('id', session.id).maybeSingle(),
+    client.from('profiles').select('display_name, role, avatar_path').eq('id', session.id).maybeSingle().then((result) => {
+      if (result.error && /avatar_path|PGRST204|42703/i.test(result.error.message)) {
+        return getSupabase().from('profiles').select('display_name, role').eq('id', session.id).maybeSingle();
+      }
+      return result;
+    }),
     client
       .from('subscriptions')
       .select('state, entitlement_id, entitlement_ids, product_id, expires_at, will_renew')
@@ -35,12 +42,15 @@ export async function hydrateProfile(session: UserSession): Promise<UserSession>
   if (profileRow) {
     next.name = profileRow.display_name || session.name;
     next.role = profileRow.role === 'admin' ? 'admin' : 'user';
+    next.avatarPath = profileRow.avatar_path ?? null;
+    next.avatarUrl = (await signedAvatarUrl(profileRow.avatar_path)) ?? null;
   }
 
   if (subscriptionRow) {
     next.subscriptionStatus = subscriptionRow.state ?? 'none';
     next.productId = subscriptionRow.product_id;
     next.willRenew = Boolean(subscriptionRow.will_renew);
+    next.expiresAt = subscriptionRow.expires_at;
     next.trialEndsAt = subscriptionRow.expires_at;
     next.entitlements = [
       ...(subscriptionRow.entitlement_ids ?? []),
@@ -49,12 +59,9 @@ export async function hydrateProfile(session: UserSession): Promise<UserSession>
 
     const entitlements = next.entitlements.map((item) => item.toLowerCase());
     if (entitlements.some((item) => item.includes('pro'))) next.plan = 'pro';
-    else if (entitlements.some((item) => item.includes('trial'))) next.plan = 'trial';
-    else if (
-      entitlements.some((item) => item.includes('basic') || item.includes('premium'))
-    ) {
-      next.plan = 'basic';
-    }
+    else next.plan = 'basic';
+  } else {
+    next.plan = next.plan === 'pro' ? 'pro' : 'basic';
   }
 
   return next;
