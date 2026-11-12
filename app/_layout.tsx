@@ -1,20 +1,28 @@
 import { Stack } from 'expo-router';
-import { AppProvider } from '@/store/app-store';
+import { StatusBar } from 'expo-status-bar';
+
+import { AppProviders } from '@/providers/app-providers';
+import { useTheme } from '@/providers/theme-provider';
+
+function RootNavigator() {
+  const { theme, colors } = useTheme();
+  return (
+    <>
+      <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: colors.background },
+        }}
+      />
+    </>
+  );
+}
 
 export default function Layout() {
   return (
-    <AppProvider>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="index" />
-        <Stack.Screen name="(auth)" />
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen
-          name="subscription"
-          options={{ presentation: 'modal' }}
-        />
-        <Stack.Screen name="admin" />
-        <Stack.Screen name="goals" />
-      </Stack>
-    </AppProvider>
+    <AppProviders>
+      <RootNavigator />
+    </AppProviders>
   );
 }

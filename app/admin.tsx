@@ -1,21 +1,64 @@
-import { router } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Alert, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { Button, Card, Row } from '@/components/ui';
-import { colors } from '@/constants/theme';
-import { useApp } from '@/store/app-store';
-import { defaultPricing, money } from '@/services/pricing';
-import { t } from '@/i18n';
+import { Redirect } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { StyleSheet, Text } from 'react-native';
+
+import { Card } from '@/components/Card';
+import { ErrorState } from '@/components/ErrorState';
+import { LoadingState } from '@/components/LoadingState';
+import { Screen } from '@/components/Screen';
+import { ScreenHeader } from '@/components/ScreenHeader';
+import { useAuth } from '@/providers/auth-provider';
+import { useTheme } from '@/providers/theme-provider';
+import { loadAdminStats, type AdminStats } from '@/services/admin';
 
 export default function Admin() {
-  const { session } = useApp();
-  if (session?.role !== 'admin') { router.replace('/(tabs)'); return null; }
-  const p = defaultPricing; const tr=(key:string)=>t(session.language,key);
-  return <SafeAreaView style={s.page}><ScrollView contentContainerStyle={s.scroll}>
-    <Text style={s.title}>{tr('admin')}</Text><Text style={s.sub}>{tr('adminDataNotice')}</Text>
-    <View style={s.grid}>{[[tr('users'),'-'],[tr('trialUsers'),'-'],[tr('monthly'),'-']].map(([label,value])=><Card key={label} style={s.metric}><Text style={s.sub}>{label}</Text><Text style={s.num}>{value}</Text></Card>)}</View>
-    <Card><Text style={s.heading}>{tr('revenue')}</Text><Text style={s.sub}>{tr('revenueNotice')}</Text><Row icon="card-outline" label={tr('merchantConnection')} value={tr('notConnected')} onPress={()=>Alert.alert(tr('secureSetup'),tr('merchantNotice'))}/><Row icon="receipt-outline" label={tr('transactions')} value={tr('noProvider')} onPress={()=>Alert.alert(tr('transactions'),tr('noProvider'))}/></Card>
-    <Card><Text style={s.heading}>{tr('pricing')}</Text><Text style={s.sub}>{tr('pricingNotice')}</Text><TextInput editable={false} value={`${tr('freeTrial')}: ${tr('free')} · ${p.trialDays} ${tr('days')}`} style={s.input}/><TextInput editable={false} value={`${tr('monthly')}: ${money(p.monthlyPrice)}/month`} style={s.input}/><TextInput editable={false} value={`${tr('currency')}: ${p.currency}`} style={s.input}/><Button label={tr('saveBackend')} variant="light" onPress={()=>Alert.alert(tr('pricing'),tr('pricingApiRequired'))}/></Card>
-  </ScrollView></SafeAreaView>;
+  const { session } = useAuth();
+  const { colors } = useTheme();
+  const [stats, setStats] = useState<AdminStats | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (session?.role !== 'admin') return;
+    loadAdminStats()
+      .then(setStats)
+      .catch((caught: unknown) => {
+        setError(caught instanceof Error ? caught.message : 'Admin stats are unavailable.');
+      });
+  }, [session?.role]);
+
+  if (session?.role !== 'admin') {
+    return <Redirect href="/(tabs)" />;
+  }
+
+  return (
+    <Screen>
+      <ScreenHeader title="Admin" back />
+      <Text style={{ color: colors.secondaryText, marginBottom: 16, lineHeight: 20 }}>
+        Admin access is granted from the server-side profile role, never from a client flag.
+      </Text>
+      {!stats && !error ? <LoadingState message="Loading admin stats..." /> : null}
+      {error ? <ErrorState message={error} onRetry={() => { setError(null); void loadAdminStats().then(setStats).catch((caught: unknown) => setError(caught instanceof Error ? caught.message : 'Admin stats are unavailable.')); }} /> : null}
+      {stats ? (
+        <>
+          <Card>
+            <Text style={[styles.label, { color: colors.secondaryText }]}>Users</Text>
+            <Text style={[styles.value, { color: colors.text }]}>{stats.users}</Text>
+          </Card>
+          <Card>
+            <Text style={[styles.label, { color: colors.secondaryText }]}>Active subscriptions</Text>
+            <Text style={[styles.value, { color: colors.text }]}>{stats.activeSubscriptions}</Text>
+          </Card>
+          <Card>
+            <Text style={[styles.label, { color: colors.secondaryText }]}>Focus sessions</Text>
+            <Text style={[styles.value, { color: colors.text }]}>{stats.focusSessions}</Text>
+          </Card>
+        </>
+      ) : null}
+    </Screen>
+  );
 }
-const s=StyleSheet.create({page:{flex:1,backgroundColor:'white'},scroll:{padding:20},title:{fontSize:27,fontWeight:'900',color:colors.ink},sub:{color:colors.muted,lineHeight:19},grid:{flexDirection:'row',flexWrap:'wrap',gap:10,marginTop:15},metric:{width:'47%',marginBottom:0},num:{fontSize:26,fontWeight:'900',color:colors.ink,marginTop:5},heading:{fontSize:18,fontWeight:'900',color:colors.ink,marginBottom:5},input:{backgroundColor:colors.soft,borderRadius:12,padding:13,marginTop:10,color:colors.muted}});
+
+const styles = StyleSheet.create({
+  label: { fontWeight: '700' },
+  value: { fontSize: 28, fontWeight: '900', marginTop: 6 },
+});

@@ -1,8 +1,19 @@
-import { Pricing } from '@/types';
-import { purchase } from '@/services/subscriptions';
-/** Display defaults only; RevenueCat/store configuration is authoritative for charge timing and final price. */
-export const defaultPricing: Pricing = { trialPrice:0, trialDays:15, monthlyPrice:99, currency:'INR' };
-export const money = (amount:number, locale='en-IN', currency='INR') => new Intl.NumberFormat(locale,{style:'currency',currency,maximumFractionDigits:0}).format(amount);
-/** Server implementation point: fetch signed, region-aware prices. */
-export interface BillingGateway { startCheckout(plan:'monthly'):Promise<void>; manageSubscription():Promise<void> }
-export const billing: BillingGateway = { async startCheckout(plan){ await purchase(plan); }, async manageSubscription(){ throw new Error('Open the Apple App Store or Google Play subscription settings to manage your mobile subscription.'); } };
+import { PLAN_CONFIG } from '@/lib/plans';
+
+export const defaultPricing = {
+  basicMonthly: PLAN_CONFIG.basic.monthlyPrice,
+  basicYearly: PLAN_CONFIG.basic.yearlyPrice,
+  proMonthly: PLAN_CONFIG.pro.monthlyPrice,
+  proYearly: PLAN_CONFIG.pro.yearlyPrice,
+  currency: 'INR',
+} as const;
+
+export const money = (amount: number, currency = defaultPricing.currency) =>
+  new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency,
+    maximumFractionDigits: 0,
+  }).format(amount);
+
+export const proAnnualSaving = defaultPricing.proMonthly * 12 - defaultPricing.proYearly;
+export const proAnnualDiscount = Math.round((proAnnualSaving / (defaultPricing.proMonthly * 12)) * 1000) / 10;
