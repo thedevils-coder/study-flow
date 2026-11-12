@@ -9,6 +9,7 @@ import {
   PRODUCT_IDS,
   normalizePlan,
 } from '@/lib/entitlements';
+import { isPaidProductId } from '@/lib/products';
 import type { Plan, ProductId, SubscriptionStatus, UserSession } from '@/types';
 
 let configured = false;
@@ -32,11 +33,7 @@ export function subscriptionFromCustomerInfo(info: CustomerInfo): SubscriptionSn
 
   if (!entitlement) return emptySnapshot();
 
-  const plan: Plan = pro
-    ? 'pro'
-    : String(entitlement.periodType).toUpperCase() === 'TRIAL'
-      ? 'trial'
-      : 'basic';
+  const plan: Plan = pro ? 'pro' : 'basic';
 
   let status: SubscriptionStatus = 'active';
   if (!entitlement.willRenew) status = 'cancelled';
@@ -92,6 +89,9 @@ function findPackage(packages: PurchasesPackage[], productId: ProductId) {
 }
 
 export async function purchaseProduct(productId: ProductId) {
+  if (!isPaidProductId(productId)) {
+    throw new Error('Basic is free. Subscribe to Pro through Google Play for the paid plan.');
+  }
   if (!configured) {
     throw new Error(
       'Purchases are not available in this build. Use an EAS development or preview build with RevenueCat configured.',

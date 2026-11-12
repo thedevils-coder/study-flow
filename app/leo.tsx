@@ -20,7 +20,6 @@ import {
 
 import { LeoMessageBubble } from '@/components/LeoMessage';
 import { Screen } from '@/components/Screen';
-import { TestStateNotice } from '@/components/TestStateNotice';
 import { BRAND } from '@/constants/brand';
 import { classifyRequest } from '@/lib/ai-router';
 import { conversationForRetry, newMessageId } from '@/lib/ai-retry';
@@ -29,7 +28,6 @@ import { AccessError, ConfigurationError } from '@/lib/errors';
 import { userLeoError } from '@/lib/ai-errors';
 import { shouldApplyLeoResult } from '@/lib/leo-isolation';
 import { canUseKind } from '@/lib/entitlements';
-import { TESTER_COPY, isTesterBuildEnabled, isTesterSession } from '@/lib/tester';
 import { useAuth } from '@/providers/auth-provider';
 import { useStudy } from '@/providers/study-provider';
 import { useTheme } from '@/providers/theme-provider';
@@ -319,8 +317,6 @@ export default function Leo() {
             <Ionicons name="create-outline" size={20} color={colors.text} />
           </Pressable>
         </View>
-
-        {isTesterBuildEnabled() && isTesterSession(session) ? <TestStateNotice message={TESTER_COPY.ai} /> : null}
 
         <FlatList
           ref={listRef}

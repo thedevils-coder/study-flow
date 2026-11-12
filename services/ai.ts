@@ -257,9 +257,9 @@ export const aiService = {
     const tier = getTier(input.session);
     if (!canUseKind(tier, input.kind)) {
       throw new AccessError(
-        input.kind === 'leo' || input.kind === 'schedule' || input.kind === 'flashcards' || input.kind === 'quiz'
-          ? 'This tool is included with Study Flow Pro and the free trial.'
-          : 'Start a free trial or choose Basic to use AI Meter.',
+        input.kind === 'schedule' || input.kind === 'flashcards' || input.kind === 'quiz'
+          ? 'This tool is included with Study Flow Pro.'
+          : 'Sign in to use AI Meter on the free Basic plan.',
       );
     }
 
@@ -307,7 +307,7 @@ export const aiService = {
 
     const tier = getTier(input.session);
     if (!canUseKind(tier, 'leo')) {
-      throw new AccessError('This tool is included with Study Flow Pro and the free trial.');
+      throw new AccessError('Sign in to use Leo on the free Basic plan.');
     }
 
     const packed = packConversation(input.history, prompt);

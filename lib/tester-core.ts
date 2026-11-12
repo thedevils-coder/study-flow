@@ -1,5 +1,5 @@
 import { addDays } from '@/lib/dates';
-import { getTier } from '@/lib/entitlements';
+import { getTier, hasProAccess } from '@/lib/entitlements';
 import type { UserSession } from '@/types';
 
 export const TESTER_EMAIL = 'tester@getstudyflow.in';
@@ -50,7 +50,7 @@ export function applyTesterDemoAccess(
   configuredEmail?: string | null,
 ): UserSession {
   if (!enabled || !isTesterEmail(session.email, configuredEmail)) return session;
-  if (getTier(session) !== 'free') return session;
+  if (hasProAccess(getTier(session))) return session;
   return { ...session, ...testerDemoSnapshot(now) };
 }
 

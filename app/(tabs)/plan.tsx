@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 
+import { BannerAdSlot } from '@/components/BannerAdSlot';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { EmptyState } from '@/components/EmptyState';
@@ -142,6 +143,7 @@ export default function Plan() {
       )}
 
       <Button label="Add task" onPress={() => router.push('/task/new')} />
+      <BannerAdSlot />
     </Screen>
   );
 }

@@ -12,7 +12,7 @@ export type SubscriptionStatus =
   | 'expired'
   | 'refunded';
 
-export type SubscriptionTier = 'free' | 'trial' | 'basic' | 'pro';
+export type SubscriptionTier = 'basic' | 'pro';
 
 export type ThemePreference = 'system' | 'light' | 'dark';
 
@@ -50,10 +50,14 @@ export type UserSession = {
   role: Role;
   plan: Plan;
   subscriptionStatus: SubscriptionStatus;
+  expiresAt?: string | null;
+  /** @deprecated Use expiresAt. Kept while older session snapshots still carry this key. */
   trialEndsAt?: string | null;
   productId?: string | null;
   willRenew?: boolean;
   entitlements: string[];
+  avatarUrl?: string | null;
+  avatarPath?: string | null;
 };
 
 export type Task = {
@@ -120,7 +124,6 @@ export type Achievement = {
 };
 
 export type Pricing = {
-  trialDays: number;
   basicMonthly: number;
   basicYearly: number;
   proMonthly: number;

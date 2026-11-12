@@ -1,23 +1,39 @@
 import { router } from 'expo-router';
-import { Alert, Linking, StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Alert, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Card } from '@/components/Card';
 import { ListRow } from '@/components/ListRow';
+import { ProfileAvatar } from '@/components/ProfileAvatar';
 import { Screen } from '@/components/Screen';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { BRAND } from '@/constants/brand';
 import { userFacingError } from '@/lib/errors';
-import { isTesterBuildEnabled, isTesterSession } from '@/lib/tester';
 import { useAuth } from '@/providers/auth-provider';
 import { useStudy } from '@/providers/study-provider';
 import { useTheme } from '@/providers/theme-provider';
+import { pickAndUploadAvatar } from '@/services/avatar';
 import { notificationService } from '@/services/settings';
 import { inviteFriends } from '@/services/sharing';
 
 export default function Settings() {
-  const { session, signOut, deleteAccount } = useAuth();
-  const { settings, saveSettings, resetTesterData } = useStudy();
+  const { session, signOut, deleteAccount, refreshProfile } = useAuth();
+  const { settings, saveSettings } = useStudy();
   const { preference, setPreference, colors } = useTheme();
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+
+  const changePhoto = async () => {
+    if (!session) return;
+    setUploadingPhoto(true);
+    try {
+      const uploaded = await pickAndUploadAvatar(session.id);
+      if (uploaded) await refreshProfile();
+    } catch (error) {
+      Alert.alert('Profile picture', userFacingError(error, 'Unable to update the profile picture.'));
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
 
   const toggle = async (key: 'notificationsEnabled' | 'studyReminders' | 'taskReminders' | 'goalReminders', value: boolean) => {
     if (value && key === 'notificationsEnabled') {
@@ -33,6 +49,20 @@ export default function Settings() {
   return (
     <Screen>
       <ScreenHeader title="Settings" back />
+      <Text style={[styles.section, { color: colors.secondaryText }]}>Profile picture</Text>
+      <Card>
+        <Pressable onPress={() => void changePhoto()} style={styles.photoRow} disabled={uploadingPhoto}>
+          <ProfileAvatar uri={session?.avatarUrl} size={72} />
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: colors.text, fontWeight: '800' }}>
+              {uploadingPhoto ? 'Uploading…' : session?.avatarUrl ? 'Change photo' : 'Add a photo'}
+            </Text>
+            <Text style={{ color: colors.secondaryText, marginTop: 4 }}>
+              Saved to your account so it stays after you sign in on another device.
+            </Text>
+          </View>
+        </Pressable>
+      </Card>
       <Text style={[styles.section, { color: colors.secondaryText }]}>Theme</Text>
       <Card padded={false}>
         <View style={{ paddingHorizontal: 16 }}>
@@ -81,35 +111,6 @@ export default function Settings() {
       <Text style={[styles.section, { color: colors.secondaryText }]}>Account</Text>
       <Card padded={false}>
         <View style={{ paddingHorizontal: 16 }}>
-          {isTesterBuildEnabled() && isTesterSession(session) ? (
-            <ListRow
-              icon="refresh-outline"
-              label="Reset tester sample data"
-              onPress={() =>
-                Alert.alert(
-                  'Reset tester data',
-                  'Replace this tester profile’s tasks, goals, focus history, achievements, and AI Meter samples with the original set?',
-                  [
-                    { text: 'Cancel', style: 'cancel' },
-                    {
-                      text: 'Reset',
-                      onPress: async () => {
-                        try {
-                          await resetTesterData();
-                          Alert.alert('Tester data', 'Sample study data was restored.');
-                        } catch (error) {
-                          Alert.alert(
-                            'Tester data',
-                            userFacingError(error, 'Unable to reset tester data right now.'),
-                          );
-                        }
-                      },
-                    },
-                  ],
-                )
-              }
-            />
-          ) : null}
           <ListRow icon="card-outline" label="Subscription" onPress={() => router.push('/subscription')} />
           <ListRow icon="people-outline" label="Invite friends" onPress={() => void inviteFriends()} />
           <ListRow icon="lock-closed-outline" label="Privacy" onPress={() => router.push({ pathname: '/legal', params: { doc: 'privacy' } })} />
@@ -159,4 +160,5 @@ export default function Settings() {
 
 const styles = StyleSheet.create({
   section: { fontWeight: '800', marginBottom: 8, marginTop: 8 },
+  photoRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
 });

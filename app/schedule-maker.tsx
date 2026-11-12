@@ -7,10 +7,8 @@ import { Card } from '@/components/Card';
 import { Input } from '@/components/Input';
 import { Screen } from '@/components/Screen';
 import { ScreenHeader } from '@/components/ScreenHeader';
-import { TestStateNotice } from '@/components/TestStateNotice';
 import { AccessError, ConfigurationError, userFacingError } from '@/lib/errors';
 import { canUseKind } from '@/lib/entitlements';
-import { TESTER_COPY, isTesterBuildEnabled, isTesterSession } from '@/lib/tester';
 import { useAuth } from '@/providers/auth-provider';
 import { useStudy } from '@/providers/study-provider';
 import { useTheme } from '@/providers/theme-provider';
@@ -94,9 +92,6 @@ export default function ScheduleMaker() {
   return (
     <Screen>
       <ScreenHeader title="AI Schedule Maker" back />
-      {isTesterBuildEnabled() && isTesterSession(session) ? (
-        <TestStateNotice message={TESTER_COPY.ai} />
-      ) : null}
       <Text style={{ color: colors.secondaryText, marginBottom: 16, lineHeight: 22 }}>
         Preview the plan before anything is added. Existing tasks are never overwritten automatically.
       </Text>

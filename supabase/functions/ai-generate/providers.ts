@@ -150,7 +150,6 @@ function collectGeminiParts(payload: Record<string, unknown>) {
 }
 
 
-function extractGeminiText(data: unknown): string {
 function extractGeminiText(data: unknown, options: { includeThoughtFallback?: boolean } = {}): string {
   const payloads = Array.isArray(data) ? data : data ? [data] : [];
   const visible: string[] = [];
@@ -173,7 +172,6 @@ function extractGeminiText(data: unknown, options: { includeThoughtFallback?: bo
     }
   }
 
-  return (visible.join('') || thought.join('\n')).trim();
   const visibleText = visible.join('');
   if (visibleText.trim()) return visibleText;
   if (options.includeThoughtFallback === false) return '';
@@ -192,7 +190,6 @@ function extractGeminiTextFromStreamBody(raw: string) {
       if (!payload || payload === '[DONE]') continue;
       try {
 
-        const delta = extractGeminiText(JSON.parse(payload));
         const delta = extractGeminiText(JSON.parse(payload), { includeThoughtFallback: false });
         if (delta) chunks.push(delta);
       } catch {
@@ -203,7 +200,6 @@ function extractGeminiTextFromStreamBody(raw: string) {
   }
   try {
 
-    return extractGeminiText(JSON.parse(text));
     return extractGeminiText(JSON.parse(text)).trim();
   } catch {
     return chunks.join('').trim();
@@ -339,6 +335,7 @@ export async function chatGemini(input: {
     const fallback = fallbackGeminiChatModel(model, errText);
     if (fallback) {
       return chatGemini({ ...input, model: fallback, stream: false });
+    }
     if (isGeminiModelNotFound(errText) && model !== DEFAULT_GEMINI_CHAT_MODEL) {
       return chatGemini({ ...input, model: DEFAULT_GEMINI_CHAT_MODEL, stream: false });
     }
@@ -363,7 +360,6 @@ export async function chatGemini(input: {
   if (!input.stream) {
     const data = (await response.json()) as Record<string, unknown>;
 
-    return { answer: extractGeminiText(data), chunks: collectSources(data) };
     return { answer: extractGeminiText(data).trim(), chunks: collectSources(data) };
   }
 
@@ -391,7 +387,6 @@ export async function chatGemini(input: {
       try {
         const json = JSON.parse(line.slice(5).trim()) as Record<string, unknown>;
 
-        const delta = extractGeminiText(json);
         const delta = extractGeminiText(json, { includeThoughtFallback: false });
         if (delta) {
           answer += delta;
