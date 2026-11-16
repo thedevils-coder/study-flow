@@ -20,6 +20,15 @@ describe('public billing and tester copy', () => {
     expect(welcome).not.toMatch(/Tester \/ Demo/i);
   });
 
+  it('keeps a profile picture change option in Settings', () => {
+    const settings = readFileSync(path.resolve(__dirname, '../app/settings.tsx'), 'utf8');
+    const avatar = readFileSync(path.resolve(__dirname, '../services/avatar.ts'), 'utf8');
+    expect(settings).toMatch(/pickAndUploadAvatar/);
+    expect(settings).toMatch(/Change photo/);
+    expect(avatar).toMatch(/base64: true/);
+    expect(avatar).toMatch(/mediaTypes: \['images'\]/);
+  });
+
   it('keeps website pricing aligned with the app', () => {
     const pricing = readFileSync(path.resolve(__dirname, '../website/pricing.html'), 'utf8');
     expect(pricing).toMatch(/FREE/);
