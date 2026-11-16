@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { GOOGLE_TEST_AD_IDS } from '@/lib/ad-config';
@@ -27,5 +29,11 @@ describe('ad eligibility', () => {
   it('keeps official Google test IDs as development defaults', () => {
     expect(GOOGLE_TEST_AD_IDS.androidAppId).toMatch(/^ca-app-pub-3940256099942544~/);
     expect(GOOGLE_TEST_AD_IDS.androidBanner).toMatch(/^ca-app-pub-3940256099942544\//);
+  });
+
+  it('does not import the native AdMob module on web', () => {
+    const web = readFileSync(path.resolve(__dirname, '../providers/ads-provider.web.tsx'), 'utf8');
+    expect(web).not.toMatch(/react-native-google-mobile-ads/);
+    expect(web).toMatch(/maybeShowInterstitial: \(\) => undefined/);
   });
 });
