@@ -32,6 +32,15 @@ export function dailyAiLimitForPlan(plan: QuotaPlan) {
   return plan === 'pro' ? PRO_DAILY_AI_LIMIT : BASIC_DAILY_AI_LIMIT;
 }
 
+export function quotaReservationUnavailable() {
+  return {
+    status: 503 as const,
+    code: 'missing_relation' as const,
+    error:
+      'The AI quota reservation migration must be applied before AI generation can run. Apply supabase/migrations/202611120003_ai_generation_reservations.sql.',
+  };
+}
+
 export function utcDayStartMs(now: number) {
   const start = new Date(now);
   start.setUTCHours(0, 0, 0, 0);

@@ -10,6 +10,7 @@ import {
   createLockedQuotaStore,
   expireReservations,
   failGeneration,
+  quotaReservationUnavailable,
   reserveQuotaSlot,
   storeSuccessfulGeneration,
   type QuotaStore,
@@ -98,6 +99,19 @@ describe('atomic AI quota reservations', () => {
 });
 
 describe('ai-generate quota wiring', () => {
+  it('fails closed with HTTP 503 when the reservation RPC is missing instead of counting generations', () => {
+    expect(quotaReservationUnavailable()).toEqual({
+      status: 503,
+      code: 'missing_relation',
+      error:
+        'The AI quota reservation migration must be applied before AI generation can run. Apply supabase/migrations/202611120003_ai_generation_reservations.sql.',
+    });
+    const source = readFileSync(path.resolve(__dirname, '../supabase/functions/ai-generate/index.ts'), 'utf8');
+    expect(source).toContain(quotaReservationUnavailable().error);
+    expect(source).not.toMatch(/from\('ai_generations'\)[\s\S]*count: 'exact'/);
+    expect(source).not.toMatch(/countResult/);
+  });
+
   it('reserves atomically, releases after storeSuccess, and cleans up in finally for stream and non-stream', () => {
     const source = readFileSync(path.resolve(__dirname, '../supabase/functions/ai-generate/index.ts'), 'utf8');
     const migration = readFileSync(
@@ -109,7 +123,10 @@ describe('ai-generate quota wiring', () => {
     expect(source).toMatch(/await releaseHold\(\);/);
     expect(source).toMatch(/} finally \{\s*await releaseHold\(\);/);
     expect(source).toMatch(/} finally \{\s*if \(!streamingResponse\) await releaseHold\(\);/);
-    expect(source).toMatch(/eq\('status', 'success'\)/);
+    expect(source).not.toMatch(/count: 'exact'/);
+    expect(source).not.toMatch(/countResult/);
+    expect(source).toMatch(/The AI quota reservation migration must be applied before AI generation can run/);
+    expect(source).toMatch(/status: 503/);
     expect(migration).toMatch(/pg_advisory_xact_lock/);
     expect(migration).toMatch(/interval '10 minutes'/);
     expect(migration).toMatch(/status = 'success'/);

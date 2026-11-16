@@ -788,44 +788,19 @@ async function takeQuotaSlot(
       limit: resolvedLimit,
     };
   }
-  if (!isMissingRpc(reserved.error.message)) {
-    if (/schema cache|does not exist|PGRST205|42P01/i.test(reserved.error.message)) {
-      return {
-        kind: 'error',
-        status: 503,
-        error: 'Apply supabase/migrations/202611120003_ai_generation_reservations.sql.',
-        code: 'missing_relation',
-      };
-    }
-    return { kind: 'error', status: 500, error: 'Unable to check usage.', code: 'database_error' };
-  }
 
-  const start = new Date();
-  start.setUTCHours(0, 0, 0, 0);
-  const counted = await admin
-    .from('ai_generations')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .gte('created_at', start.toISOString())
-    .eq('status', 'success');
-  const countResult =
-    counted.error && /status|PGRST204|42703/i.test(counted.error.message)
-      ? await admin.from('ai_generations').select('id', { count: 'exact', head: true }).eq('user_id', userId).gte('created_at', start.toISOString())
-      : counted;
-  if (countResult.error && /schema cache|does not exist|PGRST205|42P01/i.test(countResult.error.message)) {
+  const missingReservation =
+    isMissingRpc(reserved.error.message) || /schema cache|does not exist|PGRST205|42P01/i.test(reserved.error.message);
+  if (missingReservation) {
     return {
       kind: 'error',
       status: 503,
-      error: 'The ai_generations table is missing. Apply the Study Flow AI migrations.',
+      error:
+        'The AI quota reservation migration must be applied before AI generation can run. Apply supabase/migrations/202611120003_ai_generation_reservations.sql.',
       code: 'missing_relation',
     };
   }
-  if (countResult.error) return { kind: 'error', status: 500, error: 'Unable to check usage.', code: 'database_error' };
-  const used = countResult.count ?? 0;
-  if (used >= limit) {
-    return { kind: 'ok', allowed: false, reservationId: null, used, remaining: 0, limit };
-  }
-  return { kind: 'ok', allowed: true, reservationId: null, used: used + 1, remaining: Math.max(0, limit - used - 1), limit };
+  return { kind: 'error', status: 500, error: 'Unable to check usage.', code: 'database_error' };
 }
 
 async function releaseQuotaSlot(admin: ReturnType<typeof createClient>, id: string, userId: string) {
